@@ -128,7 +128,7 @@ async function happyPathDemo() {
       onchainHash: `0x${Math.random().toString(16).substr(2, 64)}`,
     }
 
-    // Create credit batch
+    // Create credit batch with serial range
     const creditBatch = await prisma.creditBatch.create({
       data: {
         projectId: approvedProject.id,
@@ -137,6 +137,8 @@ async function happyPathDemo() {
         vintageEnd: approvedIssuance.vintageEnd,
         totalIssued: approvedIssuance.quantity,
         classId: `class_${approvedProject.id}_${approvedIssuance.vintageStart}_${approvedIssuance.vintageEnd}`,
+        serialStart: 1,
+        serialEnd: approvedIssuance.quantity,
       },
     })
 
@@ -146,6 +148,16 @@ async function happyPathDemo() {
         orgId: issuer.orgId!,
         batchId: creditBatch.id,
         quantity: approvedIssuance.quantity,
+      },
+    })
+
+    // Create initial serial range for the issuer
+    await prisma.serialRange.create({
+      data: {
+        batchId: creditBatch.id,
+        ownerOrgId: issuer.orgId!,
+        startSerial: 1,
+        endSerial: approvedIssuance.quantity,
       },
     })
 
@@ -167,6 +179,8 @@ async function happyPathDemo() {
     
     const retirementQuantity = 5000 // Retire 5,000 tCO2e
     const certificateId = `cert_demo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    const retirementSerialStart = approvedIssuance.quantity - retirementQuantity + 1
+    const retirementSerialEnd = approvedIssuance.quantity
 
     // Update holding
     await prisma.creditHolding.update({
@@ -189,7 +203,20 @@ async function happyPathDemo() {
       },
     })
 
-    // Create retirement record
+    // Update serial range to remove retired portion
+    await prisma.serialRange.update({
+      where: { id: (await prisma.serialRange.findFirst({
+        where: {
+          batchId: creditBatch.id,
+          ownerOrgId: issuer.orgId!,
+        },
+      }))!.id },
+      data: {
+        endSerial: retirementSerialStart - 1,
+      },
+    })
+
+    // Create retirement record with serial range
     const retirement = await prisma.retirement.create({
       data: {
         orgId: issuer.orgId!,
@@ -198,6 +225,8 @@ async function happyPathDemo() {
         purpose: 'Corporate carbon neutrality commitment',
         beneficiary: 'Climate Action Initiative',
         certificateId,
+        serialStart: retirementSerialStart,
+        serialEnd: retirementSerialEnd,
       },
     })
 
@@ -213,8 +242,11 @@ async function happyPathDemo() {
     console.log('\nSummary:')
     console.log(`- Project: ${approvedProject.title}`)
     console.log(`- Credits Issued: ${approvedIssuance.quantity.toLocaleString()} tCO2e`)
+    console.log(`- Serial Range: 1 - ${approvedIssuance.quantity.toLocaleString()}`)
     console.log(`- Credits Retired: ${retirementQuantity.toLocaleString()} tCO2e`)
+    console.log(`- Retired Serial Range: ${retirementSerialStart} - ${retirementSerialEnd}`)
     console.log(`- Credits Available: ${(approvedIssuance.quantity - retirementQuantity).toLocaleString()} tCO2e`)
+    console.log(`- Available Serial Range: 1 - ${retirementSerialStart - 1}`)
     console.log(`- Certificate ID: ${certificateId}`)
     console.log(`- Adapter Transaction: ${adapterResponse.adapterTxId}`)
 

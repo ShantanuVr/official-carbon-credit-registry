@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Leaf, MapPin, Calendar, Building } from 'lucide-react'
+import { Leaf, MapPin, Calendar, Building, Hash } from 'lucide-react'
 
 export default function ExplorerPage() {
   // Mock data for demonstration
@@ -16,6 +16,7 @@ export default function ExplorerPage() {
       status: 'DRAFT',
       creditsIssued: 0,
       creditsRetired: 0,
+      serialRanges: [],
     },
     {
       id: 'solar-farm-b',
@@ -27,6 +28,7 @@ export default function ExplorerPage() {
       status: 'UNDER_REVIEW',
       creditsIssued: 0,
       creditsRetired: 0,
+      serialRanges: [],
     },
     {
       id: 'wind-farm-c',
@@ -38,6 +40,15 @@ export default function ExplorerPage() {
       status: 'APPROVED',
       creditsIssued: 50000,
       creditsRetired: 5000,
+      serialRanges: [
+        {
+          startSerial: 1,
+          endSerial: 45000,
+          quantity: 45000,
+          formatted: '00000001-00045000',
+          humanReadable: 'SIM-REG-WINDFARM-2024-2024-BA01-00000001-00045000'
+        }
+      ],
     },
   ]
 
@@ -153,6 +164,30 @@ export default function ExplorerPage() {
                       <div className="text-xs text-gray-600">Retired</div>
                     </div>
                   </div>
+
+                  {/* Serial Ranges */}
+                  {project.serialRanges && project.serialRanges.length > 0 && (
+                    <div className="pt-4 border-t">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Hash className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-700">Serial Ranges</span>
+                      </div>
+                      <div className="space-y-2">
+                        {project.serialRanges.map((range, index) => (
+                          <div key={index} className="bg-gray-50 rounded p-2 text-xs">
+                            <div className="flex justify-between items-center">
+                              <span className="font-mono text-gray-600">
+                                {range.formatted || `${range.startSerial.toString().padStart(8, '0')}-${range.endSerial.toString().padStart(8, '0')}`}
+                              </span>
+                              <Badge variant="secondary" className="text-xs">
+                                {range.quantity} credits
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <Button className="w-full" variant="outline">
                     View Details

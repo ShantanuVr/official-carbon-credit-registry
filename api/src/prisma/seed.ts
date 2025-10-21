@@ -254,8 +254,90 @@ async function seedIssuances(projects: any) {
     },
   })
 
+  // Create a finalized issuance with credit batch and serial ranges
+  const finalizedIssuance = await prisma.issuanceRequest.upsert({
+    where: { id: 'issuance-wind-c-finalized' },
+    update: {},
+    create: {
+      id: 'issuance-wind-c-finalized',
+      projectId: windFarmC.id,
+      vintageStart: 2024,
+      vintageEnd: 2024,
+      quantity: 30000, // 30,000 tCO2e
+      factorRef: 'factor_renewable_2024_v2.1',
+      status: IssuanceStatus.FINALIZED,
+      evidenceIds: ['evidence-wind-c-1'],
+      adapterTxId: 'tx_wind_c_finalized_2024',
+      onchainHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+    },
+  })
+
+  // Create credit batch with serial range
+  const creditBatch = await prisma.creditBatch.upsert({
+    where: { id: 'batch-wind-c-finalized' },
+    update: {},
+    create: {
+      id: 'batch-wind-c-finalized',
+      projectId: windFarmC.id,
+      issuanceId: finalizedIssuance.id,
+      vintageStart: 2024,
+      vintageEnd: 2024,
+      totalIssued: 30000,
+      totalRetired: 5000, // Some credits already retired
+      classId: `class_${windFarmC.id}_2024_2024`,
+      serialStart: 1,
+      serialEnd: 30000,
+    },
+  })
+
+  // Create initial holding for the project organization
+  await prisma.creditHolding.upsert({
+    where: { 
+      orgId_batchId: {
+        orgId: windFarmC.orgId,
+        batchId: creditBatch.id,
+      }
+    },
+    update: {},
+    create: {
+      orgId: windFarmC.orgId,
+      batchId: creditBatch.id,
+      quantity: 25000, // 25,000 available (30,000 issued - 5,000 retired)
+    },
+  })
+
+  // Create serial range for the issuer
+  await prisma.serialRange.upsert({
+    where: { id: 'serial-range-wind-c-1' },
+    update: {},
+    create: {
+      id: 'serial-range-wind-c-1',
+      batchId: creditBatch.id,
+      ownerOrgId: windFarmC.orgId,
+      startSerial: 1,
+      endSerial: 25000, // Available range (excluding retired)
+    },
+  })
+
+  // Create retirement record with serial range
+  const retirement = await prisma.retirement.upsert({
+    where: { id: 'retirement-wind-c-1' },
+    update: {},
+    create: {
+      id: 'retirement-wind-c-1',
+      orgId: windFarmC.orgId,
+      batchId: creditBatch.id,
+      quantity: 5000,
+      purpose: 'Corporate carbon neutrality commitment',
+      beneficiary: 'Climate Action Initiative',
+      certificateId: 'cert_wind_c_demo_2024',
+      serialStart: 25001, // Retired range
+      serialEnd: 30000,
+    },
+  })
+
   console.log('Issuance requests seeded successfully')
-  return { issuance }
+  return { issuance, finalizedIssuance, creditBatch, retirement }
 }
 
 async function main() {
