@@ -1,0 +1,27 @@
+{
+  "name": "official-registry-sim",
+  "version": "1.0.0",
+  "description": "Official Carbon Credit Registry Simulator",
+  "private": true,
+  "workspaces": [
+    "api",
+    "ui"
+  ],
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter api dev\" \"pnpm --filter ui dev\"",
+    "build": "pnpm --filter api build && pnpm --filter ui build",
+    "db:migrate": "pnpm --filter api db:migrate",
+    "db:seed:all": "pnpm --filter api db:seed:all",
+    "test": "pnpm --filter api test && pnpm --filter ui test",
+    "test:e2e": "pnpm --filter api test:e2e",
+    "lint": "pnpm --filter api lint && pnpm --filter ui lint",
+    "type-check": "pnpm --filter api type-check && pnpm --filter ui type-check"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

@@ -1,0 +1,214 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  VERIFIER
+  ISSUER
+  VIEWER
+}
+
+enum ProjectStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  NEEDS_CHANGES
+  APPROVED
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum IssuanceStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  NEEDS_CHANGES
+  APPROVED
+  FINALIZED
+  REJECTED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      Role
+  orgId     String?
+  password  String
+  totpSecret String?
+  totpEnabled Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+  auditEvents  AuditEvent[]
+
+  @@map("users")
+}
+
+model Organization {
+  id   String @id @default(cuid())
+  name String
+  type String // "ISSUER", "VERIFIER", etc.
+
+  users     User[]
+  projects  Project[]
+  holdings  CreditHolding[]
+  transfersFrom Transfer[] @relation("TransferFrom")
+  transfersTo   Transfer[] @relation("TransferTo")
+  retirements   Retirement[]
+
+  @@map("organizations")
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  orgId         String
+  title         String
+  description   String
+  country       String
+  region        String
+  methodology   String
+  baselineRef   String?
+  status        ProjectStatus @default(DRAFT)
+  iotDigestRef  String? // Reference to IoT oracle data
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  organization    Organization     @relation(fields: [orgId], references: [id])
+  evidenceFiles   EvidenceFile[]
+  issuanceRequests IssuanceRequest[]
+  creditBatches   CreditBatch[]
+  auditEvents     AuditEvent[]
+
+  @@map("projects")
+}
+
+model EvidenceFile {
+  id        String   @id @default(cuid())
+  projectId String
+  fileName  String
+  sizeBytes Int
+  sha256    String
+  cid       String?  // IPFS CID
+  uploadedBy String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("evidence_files")
+}
+
+model IssuanceRequest {
+  id           String         @id @default(cuid())
+  projectId    String
+  vintageStart Int
+  vintageEnd   Int
+  quantity     Int
+  factorRef    String
+  status       IssuanceStatus @default(DRAFT)
+  evidenceIds  String[]       // Array of evidence file IDs
+  approvals    Json?          // JSON object with approval history
+  adapterTxId  String?        // Transaction ID from adapter
+  onchainHash  String?        // On-chain hash reference
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id])
+  creditBatch CreditBatch?
+  auditEvents AuditEvent[]
+
+  @@map("issuance_requests")
+}
+
+model CreditBatch {
+  id           String   @id @default(cuid())
+  projectId    String
+  issuanceId   String   @unique
+  vintageStart Int
+  vintageEnd   Int
+  totalIssued  Int
+  totalRetired Int      @default(0)
+  classId      String   // ERC-1155 style class ID
+  createdAt    DateTime @default(now())
+
+  project         Project         @relation(fields: [projectId], references: [id])
+  issuanceRequest IssuanceRequest @relation(fields: [issuanceId], references: [id])
+  holdings        CreditHolding[]
+  transfers       Transfer[]
+  retirements     Retirement[]
+
+  @@map("credit_batches")
+}
+
+model CreditHolding {
+  id       String   @id @default(cuid())
+  orgId    String
+  batchId  String
+  quantity Int
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  batch        CreditBatch  @relation(fields: [batchId], references: [id])
+
+  @@unique([orgId, batchId])
+  @@map("credit_holdings")
+}
+
+model Transfer {
+  id       String   @id @default(cuid())
+  fromOrgId String
+  toOrgId   String
+  batchId   String
+  quantity  Int
+  createdAt DateTime @default(now())
+
+  fromOrg Organization @relation("TransferFrom", fields: [fromOrgId], references: [id])
+  toOrg   Organization @relation("TransferTo", fields: [toOrgId], references: [id])
+  batch   CreditBatch  @relation(fields: [batchId], references: [id])
+
+  @@map("transfers")
+}
+
+model Retirement {
+  id            String   @id @default(cuid())
+  orgId         String
+  batchId       String
+  quantity      Int
+  purpose       String
+  beneficiary   String?
+  certificateId String   @unique
+  createdAt     DateTime @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  batch        CreditBatch  @relation(fields: [batchId], references: [id])
+
+  @@map("retirements")
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorUserId String
+  actorRole   Role
+  entityType  String
+  entityId    String
+  action      String
+  beforeJson  Json?
+  afterJson   Json?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  actor User @relation(fields: [actorUserId], references: [id])
+
+  @@map("audit_events")
+}

@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: carbon_registry
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/carbon_registry
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 24h
+      SERVER_PORT: 4000
+      SERVER_HOST: 0.0.0.0
+      CORS_ORIGIN: http://localhost:3000
+      ADAPTER_URL: http://mock-adapter:3001
+      LOCKER_URL: http://mock-locker:3002
+      ORACLE_URL: http://mock-oracle:3003
+      REGISTRY_BRAND_NAME: Official Carbon Credit Registry
+      ENABLE_TOTP: false
+      READONLY_MODE: false
+      ALLOW_DEMO_UPLOAD_BYPASS: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    command: sh -c "pnpm install && pnpm db:generate && pnpm db:migrate && pnpm db:seed:all && pnpm dev"
+
+  ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      NEXT_PUBLIC_REGISTRY_NAME: Official Carbon Credit Registry
+    depends_on:
+      - api
+    volumes:
+      - ./ui:/app
+      - /app/node_modules
+    command: sh -c "pnpm install && pnpm dev"
+
+  mock-adapter:
+    image: node:20-alpine
+    ports:
+      - "3001:3001"
+    working_dir: /app
+    command: sh -c "echo 'Mock Registry Adapter running on port 3001' && sleep infinity"
+    volumes:
+      - ./infra/mock-adapter.js:/app/index.js
+    command: sh -c "npm init -y && npm install express && node index.js"
+
+  mock-locker:
+    image: node:20-alpine
+    ports:
+      - "3002:3002"
+    working_dir: /app
+    volumes:
+      - ./infra/mock-locker.js:/app/index.js
+    command: sh -c "npm init -y && npm install express multer && node index.js"
+
+  mock-oracle:
+    image: node:20-alpine
+    ports:
+      - "3003:3003"
+    working_dir: /app
+    volumes:
+      - ./infra/mock-oracle.js:/app/index.js
+    command: sh -c "npm init -y && npm install express && node index.js"
+
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+
+volumes:
+  postgres_data:

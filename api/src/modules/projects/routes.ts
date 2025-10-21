@@ -1,0 +1,378 @@
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
+import { prisma } from '../../index'
+import { AppError, ErrorCodes } from '../../lib/errors'
+import { authenticate, requireRole, requireOrgAccess, AuthenticatedRequest } from '../../lib/auth'
+import { Role, ProjectStatus } from '@prisma/client'
+
+const createProjectSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  country: z.string().min(1),
+  region: z.string().min(1),
+  methodology: z.string().min(1),
+  baselineRef: z.string().optional(),
+})
+
+const updateProjectSchema = createProjectSchema.partial()
+
+const submitProjectSchema = z.object({
+  message: z.string().optional(),
+})
+
+const requestChangesSchema = z.object({
+  message: z.string().min(1),
+})
+
+const approveProjectSchema = z.object({
+  message: z.string().optional(),
+})
+
+export async function projectRoutes(fastify: FastifyInstance) {
+  // Create project
+  fastify.post('/', {
+    preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
+    schema: {
+      body: createProjectSchema,
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const data = request.body as z.infer<typeof createProjectSchema>
+
+    const project = await prisma.project.create({
+      data: {
+        ...data,
+        orgId: authRequest.user.orgId!,
+        status: ProjectStatus.DRAFT,
+      },
+      include: {
+        organization: true,
+        evidenceFiles: true,
+      },
+    })
+
+    // Audit log
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: authRequest.user.id,
+        actorRole: authRequest.user.role,
+        entityType: 'Project',
+        entityId: project.id,
+        action: 'CREATE',
+        afterJson: project,
+      },
+    })
+
+    return project
+  })
+
+  // Get projects with pagination and filtering
+  fastify.get('/', {
+    preHandler: [authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const query = request.query as any
+
+    const page = parseInt(query.page) || 1
+    const limit = Math.min(parseInt(query.limit) || 20, 100)
+    const skip = (page - 1) * limit
+
+    const where: any = {}
+
+    // Filter by status
+    if (query.status) {
+      where.status = query.status
+    }
+
+    // Filter by organization for issuers
+    if (authRequest.user.role === Role.ISSUER && authRequest.user.orgId) {
+      where.orgId = authRequest.user.orgId
+    }
+
+    // Search by title or description
+    if (query.q) {
+      where.OR = [
+        { title: { contains: query.q, mode: 'insensitive' } },
+        { description: { contains: query.q, mode: 'insensitive' } },
+      ]
+    }
+
+    const [projects, total] = await Promise.all([
+      prisma.project.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          organization: true,
+          evidenceFiles: true,
+          _count: {
+            select: {
+              issuanceRequests: true,
+              creditBatches: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.project.count({ where }),
+    ])
+
+    return {
+      projects,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    }
+  })
+
+  // Get single project
+  fastify.get('/:id', {
+    preHandler: [authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const params = request.params as { id: string }
+
+    const project = await prisma.project.findUnique({
+      where: { id: params.id },
+      include: {
+        organization: true,
+        evidenceFiles: true,
+        issuanceRequests: {
+          include: {
+            creditBatch: true,
+          },
+        },
+        creditBatches: {
+          include: {
+            holdings: {
+              include: {
+                organization: true,
+              },
+            },
+            transfers: true,
+            retirements: true,
+          },
+        },
+        auditEvents: {
+          include: {
+            actor: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
+    })
+
+    if (!project) {
+      throw new AppError(ErrorCodes.PROJECT_NOT_FOUND, 'Project not found', 404)
+    }
+
+    // Check access permissions
+    if (authRequest.user.role === Role.ISSUER && project.orgId !== authRequest.user.orgId) {
+      throw new AppError(ErrorCodes.FORBIDDEN, 'Access denied', 403)
+    }
+
+    return project
+  })
+
+  // Update project
+  fastify.patch('/:id', {
+    preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
+    schema: {
+      body: updateProjectSchema,
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const params = request.params as { id: string }
+    const data = request.body as z.infer<typeof updateProjectSchema>
+
+    const existingProject = await prisma.project.findUnique({
+      where: { id: params.id },
+    })
+
+    if (!existingProject) {
+      throw new AppError(ErrorCodes.PROJECT_NOT_FOUND, 'Project not found', 404)
+    }
+
+    // Check permissions
+    if (authRequest.user.role === Role.ISSUER) {
+      if (existingProject.orgId !== authRequest.user.orgId) {
+        throw new AppError(ErrorCodes.FORBIDDEN, 'Access denied', 403)
+      }
+      if (existingProject.status !== ProjectStatus.DRAFT) {
+        throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Project cannot be modified in current state', 400)
+      }
+    }
+
+    const updatedProject = await prisma.project.update({
+      where: { id: params.id },
+      data,
+      include: {
+        organization: true,
+        evidenceFiles: true,
+      },
+    })
+
+    // Audit log
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: authRequest.user.id,
+        actorRole: authRequest.user.role,
+        entityType: 'Project',
+        entityId: updatedProject.id,
+        action: 'UPDATE',
+        beforeJson: existingProject,
+        afterJson: updatedProject,
+      },
+    })
+
+    return updatedProject
+  })
+
+  // Submit project for review
+  fastify.post('/:id/submit', {
+    preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
+    schema: {
+      body: submitProjectSchema,
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const params = request.params as { id: string }
+    const data = request.body as z.infer<typeof submitProjectSchema>
+
+    const project = await prisma.project.findUnique({
+      where: { id: params.id },
+    })
+
+    if (!project) {
+      throw new AppError(ErrorCodes.PROJECT_NOT_FOUND, 'Project not found', 404)
+    }
+
+    if (project.status !== ProjectStatus.DRAFT) {
+      throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Project must be in DRAFT status to submit', 400)
+    }
+
+    const updatedProject = await prisma.project.update({
+      where: { id: params.id },
+      data: { status: ProjectStatus.UNDER_REVIEW },
+      include: {
+        organization: true,
+        evidenceFiles: true,
+      },
+    })
+
+    // Audit log
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: authRequest.user.id,
+        actorRole: authRequest.user.role,
+        entityType: 'Project',
+        entityId: updatedProject.id,
+        action: 'SUBMIT',
+        beforeJson: project,
+        afterJson: updatedProject,
+      },
+    })
+
+    return updatedProject
+  })
+
+  // Request changes
+  fastify.post('/:id/request-changes', {
+    preHandler: [authenticate, requireRole([Role.ADMIN, Role.VERIFIER])],
+    schema: {
+      body: requestChangesSchema,
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const params = request.params as { id: string }
+    const data = request.body as z.infer<typeof requestChangesSchema>
+
+    const project = await prisma.project.findUnique({
+      where: { id: params.id },
+    })
+
+    if (!project) {
+      throw new AppError(ErrorCodes.PROJECT_NOT_FOUND, 'Project not found', 404)
+    }
+
+    if (project.status !== ProjectStatus.UNDER_REVIEW) {
+      throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Project must be under review to request changes', 400)
+    }
+
+    const updatedProject = await prisma.project.update({
+      where: { id: params.id },
+      data: { status: ProjectStatus.NEEDS_CHANGES },
+      include: {
+        organization: true,
+        evidenceFiles: true,
+      },
+    })
+
+    // Audit log
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: authRequest.user.id,
+        actorRole: authRequest.user.role,
+        entityType: 'Project',
+        entityId: updatedProject.id,
+        action: 'REQUEST_CHANGES',
+        beforeJson: project,
+        afterJson: updatedProject,
+      },
+    })
+
+    return updatedProject
+  })
+
+  // Approve project
+  fastify.post('/:id/approve', {
+    preHandler: [authenticate, requireRole([Role.ADMIN, Role.VERIFIER])],
+    schema: {
+      body: approveProjectSchema,
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const params = request.params as { id: string }
+    const data = request.body as z.infer<typeof approveProjectSchema>
+
+    const project = await prisma.project.findUnique({
+      where: { id: params.id },
+    })
+
+    if (!project) {
+      throw new AppError(ErrorCodes.PROJECT_NOT_FOUND, 'Project not found', 404)
+    }
+
+    if (project.status !== ProjectStatus.UNDER_REVIEW) {
+      throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Project must be under review to approve', 400)
+    }
+
+    const updatedProject = await prisma.project.update({
+      where: { id: params.id },
+      data: { status: ProjectStatus.APPROVED },
+      include: {
+        organization: true,
+        evidenceFiles: true,
+      },
+    })
+
+    // Audit log
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: authRequest.user.id,
+        actorRole: authRequest.user.role,
+        entityType: 'Project',
+        entityId: updatedProject.id,
+        action: 'APPROVE',
+        beforeJson: project,
+        afterJson: updatedProject,
+      },
+    })
+
+    return updatedProject
+  })
+}
