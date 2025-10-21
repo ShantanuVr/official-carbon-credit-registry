@@ -4,6 +4,7 @@ import { prisma } from '../../index'
 import { AppError, ErrorCodes } from '../../lib/errors'
 import { authenticate, requireRole, AuthenticatedRequest } from '../../lib/auth'
 import { Role, IssuanceStatus } from '@prisma/client'
+import { SerialAllocator } from '../../lib/serial-allocator'
 
 const createIssuanceSchema = z.object({
   projectId: z.string(),
@@ -27,6 +28,7 @@ const finalizeIssuanceSchema = z.object({
 })
 
 export async function issuanceRoutes(fastify: FastifyInstance) {
+  const serialAllocator = new SerialAllocator(prisma)
   // Create issuance request
   fastify.post('/', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
@@ -346,7 +348,7 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
     return updatedIssuance
   })
 
-  // Finalize issuance (Admin only)
+  // Finalize issuance (Admin only) - creates credit batch and serial ranges
   fastify.post('/:id/finalize', {
     preHandler: [authenticate, requireRole([Role.ADMIN])],
     schema: {
@@ -378,43 +380,57 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
       onchainHash: `0x${Math.random().toString(16).substr(2, 64)}`,
     }
 
-    // Create credit batch
-    const creditBatch = await prisma.creditBatch.create({
-      data: {
-        projectId: issuance.projectId,
-        issuanceId: issuance.id,
-        vintageStart: issuance.vintageStart,
-        vintageEnd: issuance.vintageEnd,
-        totalIssued: issuance.quantity,
-        classId: `class_${issuance.projectId}_${issuance.vintageStart}_${issuance.vintageEnd}`,
-      },
-    })
-
-    // Create initial holding for the project organization
-    await prisma.creditHolding.create({
-      data: {
-        orgId: issuance.project.orgId,
-        batchId: creditBatch.id,
-        quantity: issuance.quantity,
-      },
-    })
-
-    // Update issuance with adapter response and finalize
-    const updatedIssuance = await prisma.issuanceRequest.update({
-      where: { id: params.id },
-      data: {
-        status: IssuanceStatus.FINALIZED,
-        adapterTxId: adapterResponse.adapterTxId,
-        onchainHash: adapterResponse.onchainHash,
-      },
-      include: {
-        project: {
-          include: {
-            organization: true,
-          },
+    // Perform finalization in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create credit batch with serial range
+      const creditBatch = await tx.creditBatch.create({
+        data: {
+          projectId: issuance.projectId,
+          issuanceId: issuance.id,
+          vintageStart: issuance.vintageStart,
+          vintageEnd: issuance.vintageEnd,
+          totalIssued: issuance.quantity,
+          classId: `class_${issuance.projectId}_${issuance.vintageStart}_${issuance.vintageEnd}`,
+          serialStart: 1,
+          serialEnd: issuance.quantity,
         },
-        creditBatch: true,
-      },
+      })
+
+      // Create initial holding for the project organization
+      await tx.creditHolding.create({
+        data: {
+          orgId: issuance.project.orgId,
+          batchId: creditBatch.id,
+          quantity: issuance.quantity,
+        },
+      })
+
+      // Create initial serial range for the issuer
+      await serialAllocator.createInitialSerialRange(
+        creditBatch.id,
+        issuance.project.orgId,
+        issuance.quantity
+      )
+
+      // Update issuance with adapter response and finalize
+      const updatedIssuance = await tx.issuanceRequest.update({
+        where: { id: params.id },
+        data: {
+          status: IssuanceStatus.FINALIZED,
+          adapterTxId: adapterResponse.adapterTxId,
+          onchainHash: adapterResponse.onchainHash,
+        },
+        include: {
+          project: {
+            include: {
+              organization: true,
+            },
+          },
+          creditBatch: true,
+        },
+      })
+
+      return { updatedIssuance, creditBatch }
     })
 
     // Audit log
@@ -423,16 +439,29 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
         actorUserId: authRequest.user.id,
         actorRole: authRequest.user.role,
         entityType: 'IssuanceRequest',
-        entityId: updatedIssuance.id,
+        entityId: result.updatedIssuance.id,
         action: 'FINALIZE',
         beforeJson: issuance,
-        afterJson: updatedIssuance,
+        afterJson: result.updatedIssuance,
       },
     })
 
     return {
-      ...updatedIssuance,
+      ...result.updatedIssuance,
       adapterResponse,
+      serialRange: {
+        startSerial: 1,
+        endSerial: issuance.quantity,
+        formatted: serialAllocator.formatSerialRange(1, issuance.quantity),
+        humanReadable: serialAllocator.generateHumanReadableSerial(
+          issuance.project.title.replace(/\s+/g, '').substring(0, 8).toUpperCase(),
+          issuance.vintageStart,
+          issuance.vintageEnd,
+          result.creditBatch.id,
+          1,
+          issuance.quantity
+        ),
+      },
     }
   })
 }

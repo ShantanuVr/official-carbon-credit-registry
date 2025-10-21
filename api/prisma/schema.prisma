@@ -61,9 +61,10 @@ model Organization {
   name String
   type String // "ISSUER", "VERIFIER", etc.
 
-  users     User[]
-  projects  Project[]
-  holdings  CreditHolding[]
+  users        User[]
+  projects     Project[]
+  holdings     CreditHolding[]
+  serialRanges SerialRange[]
   transfersFrom Transfer[] @relation("TransferFrom")
   transfersTo   Transfer[] @relation("TransferTo")
   retirements   Retirement[]
@@ -140,15 +141,33 @@ model CreditBatch {
   totalIssued  Int
   totalRetired Int      @default(0)
   classId      String   // ERC-1155 style class ID
+  serialStart  Int      // 1-based, inclusive
+  serialEnd    Int      // inclusive
   createdAt    DateTime @default(now())
 
   project         Project         @relation(fields: [projectId], references: [id])
   issuanceRequest IssuanceRequest @relation(fields: [issuanceId], references: [id])
   holdings        CreditHolding[]
+  serialRanges    SerialRange[]
   transfers       Transfer[]
   retirements     Retirement[]
 
   @@map("credit_batches")
+}
+
+model SerialRange {
+  id          String   @id @default(cuid())
+  batchId     String
+  ownerOrgId  String
+  startSerial Int      // inclusive
+  endSerial   Int      // inclusive
+  createdAt   DateTime @default(now())
+
+  batch   CreditBatch  @relation(fields: [batchId], references: [id])
+  owner   Organization @relation(fields: [ownerOrgId], references: [id])
+
+  @@index([batchId, ownerOrgId])
+  @@map("serial_ranges")
 }
 
 model CreditHolding {
@@ -188,6 +207,8 @@ model Retirement {
   purpose       String
   beneficiary   String?
   certificateId String   @unique
+  serialStart   Int      // inclusive
+  serialEnd     Int      // inclusive
   createdAt     DateTime @default(now())
 
   organization Organization @relation(fields: [orgId], references: [id])

@@ -4,6 +4,7 @@ import { prisma } from '../../index'
 import { AppError, ErrorCodes } from '../../lib/errors'
 import { authenticate, requireRole, AuthenticatedRequest } from '../../lib/auth'
 import { Role } from '@prisma/client'
+import { SerialAllocator } from '../../lib/serial-allocator'
 
 const transferCreditsSchema = z.object({
   from: z.string().optional(), // Defaults to current user's org
@@ -20,7 +21,70 @@ const retireCreditsSchema = z.object({
 })
 
 export async function creditRoutes(fastify: FastifyInstance) {
-  // Get credit balance
+  const serialAllocator = new SerialAllocator(prisma)
+
+  // Get credit holdings with serial ranges
+  fastify.get('/holdings', {
+    preHandler: [authenticate],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const query = request.query as any
+
+    const ownerId = query.orgId === 'me' ? authRequest.user.orgId : query.orgId
+
+    if (!ownerId) {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Organization ID is required', 400)
+    }
+
+    // Check permissions
+    if (authRequest.user.role === Role.ISSUER && ownerId !== authRequest.user.orgId) {
+      throw new AppError(ErrorCodes.FORBIDDEN, 'Access denied', 403)
+    }
+
+    const holdings = await prisma.creditHolding.findMany({
+      where: { orgId: ownerId },
+      include: {
+        batch: {
+          include: {
+            project: {
+              include: {
+                organization: true,
+              },
+            },
+            serialRanges: {
+              where: { ownerOrgId: ownerId },
+              orderBy: { startSerial: 'asc' },
+            },
+          },
+        },
+      },
+    })
+
+    return holdings.map(holding => ({
+      batchId: holding.batchId,
+      projectId: holding.batch.projectId,
+      vintageStart: holding.batch.vintageStart,
+      vintageEnd: holding.batch.vintageEnd,
+      quantity: holding.quantity,
+      project: holding.batch.project,
+      ranges: holding.batch.serialRanges.map(range => ({
+        startSerial: range.startSerial,
+        endSerial: range.endSerial,
+        quantity: range.endSerial - range.startSerial + 1,
+        formatted: serialAllocator.formatSerialRange(range.startSerial, range.endSerial),
+        humanReadable: serialAllocator.generateHumanReadableSerial(
+          holding.batch.project.title.replace(/\s+/g, '').substring(0, 8).toUpperCase(),
+          holding.batch.vintageStart,
+          holding.batch.vintageEnd,
+          holding.batchId,
+          range.startSerial,
+          range.endSerial
+        ),
+      })),
+    }))
+  })
+
+  // Get credit balance (legacy endpoint for compatibility)
   fastify.get('/balance', {
     preHandler: [authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -70,7 +134,7 @@ export async function creditRoutes(fastify: FastifyInstance) {
     }
   })
 
-  // Transfer credits
+  // Transfer credits with serial allocation
   fastify.post('/transfer', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
     schema: {
@@ -126,6 +190,13 @@ export async function creditRoutes(fastify: FastifyInstance) {
       throw new AppError(ErrorCodes.ORGANIZATION_NOT_FOUND, 'Recipient organization not found', 404)
     }
 
+    // Allocate serial ranges for transfer
+    const allocations = await serialAllocator.allocateForTransfer(
+      data.batchId,
+      fromOrgId,
+      data.quantity
+    )
+
     // Perform transfer in transaction
     const result = await prisma.$transaction(async (tx) => {
       // Update sender's holding
@@ -173,6 +244,14 @@ export async function creditRoutes(fastify: FastifyInstance) {
         })
       }
 
+      // Transfer serial ranges
+      await serialAllocator.transferSerialRanges(
+        data.batchId,
+        fromOrgId,
+        data.toOrgId,
+        allocations
+      )
+
       // Create transfer record
       const transfer = await tx.transfer.create({
         data: {
@@ -192,7 +271,7 @@ export async function creditRoutes(fastify: FastifyInstance) {
         },
       })
 
-      return transfer
+      return { transfer, allocations }
     })
 
     // Audit log
@@ -201,16 +280,24 @@ export async function creditRoutes(fastify: FastifyInstance) {
         actorUserId: authRequest.user.id,
         actorRole: authRequest.user.role,
         entityType: 'Transfer',
-        entityId: result.id,
+        entityId: result.transfer.id,
         action: 'CREATE',
         afterJson: result,
       },
     })
 
-    return result
+    return {
+      transferId: result.transfer.id,
+      allocated: allocations.map(allocation => ({
+        startSerial: allocation.startSerial,
+        endSerial: allocation.endSerial,
+        quantity: allocation.quantity,
+        formatted: serialAllocator.formatSerialRange(allocation.startSerial, allocation.endSerial),
+      })),
+    }
   })
 
-  // Retire credits
+  // Retire credits with serial allocation
   fastify.post('/retire', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
     schema: {
@@ -258,6 +345,13 @@ export async function creditRoutes(fastify: FastifyInstance) {
       throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Retirement would exceed total issued credits', 400)
     }
 
+    // Allocate serial range for retirement
+    const allocation = await serialAllocator.allocateForRetirement(
+      data.batchId,
+      orgId,
+      data.quantity
+    )
+
     // Perform retirement in transaction
     const result = await prisma.$transaction(async (tx) => {
       // Update holding
@@ -281,6 +375,44 @@ export async function creditRoutes(fastify: FastifyInstance) {
         },
       })
 
+      // Remove retired serial range from organization
+      const sourceRange = await tx.serialRange.findFirst({
+        where: {
+          batchId: data.batchId,
+          ownerOrgId: orgId,
+          startSerial: { lte: allocation.startSerial },
+          endSerial: { gte: allocation.endSerial },
+        },
+      })
+
+      if (sourceRange) {
+        // If retirement covers entire range, delete it
+        if (sourceRange.startSerial === allocation.startSerial && 
+            sourceRange.endSerial === allocation.endSerial) {
+          await tx.serialRange.delete({
+            where: { id: sourceRange.id },
+          })
+        } else {
+          // Split the range
+          await tx.serialRange.update({
+            where: { id: sourceRange.id },
+            data: { endSerial: allocation.startSerial - 1 },
+          })
+
+          // If there's a remaining portion, create another range
+          if (allocation.endSerial < sourceRange.endSerial) {
+            await tx.serialRange.create({
+              data: {
+                batchId: data.batchId,
+                ownerOrgId: orgId,
+                startSerial: allocation.endSerial + 1,
+                endSerial: sourceRange.endSerial,
+              },
+            })
+          }
+        }
+      }
+
       // Create retirement record
       const certificateId = `cert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       
@@ -292,6 +424,8 @@ export async function creditRoutes(fastify: FastifyInstance) {
           purpose: data.purpose,
           beneficiary: data.beneficiary,
           certificateId,
+          serialStart: allocation.startSerial,
+          serialEnd: allocation.endSerial,
         },
         include: {
           organization: true,
@@ -318,6 +452,21 @@ export async function creditRoutes(fastify: FastifyInstance) {
       },
     })
 
-    return result
+    return {
+      retirementId: result.id,
+      certificateId: result.certificateId,
+      serialStart: allocation.startSerial,
+      serialEnd: allocation.endSerial,
+      quantity: data.quantity,
+      formatted: serialAllocator.formatSerialRange(allocation.startSerial, allocation.endSerial),
+      humanReadable: serialAllocator.generateHumanReadableSerial(
+        batch.project.title.replace(/\s+/g, '').substring(0, 8).toUpperCase(),
+        batch.vintageStart,
+        batch.vintageEnd,
+        batch.id,
+        allocation.startSerial,
+        allocation.endSerial
+      ),
+    }
   })
 }

@@ -88,6 +88,34 @@ function generateCertificateHtml(retirement: any): string {
   const { batch, organization } = retirement
   const { project, issuanceRequest } = batch
 
+  // Format serial range
+  const formatSerialRange = (start: number, end: number) => {
+    if (start === end) {
+      return `${start.toString().padStart(8, '0')}`
+    }
+    return `${start.toString().padStart(8, '0')}-${end.toString().padStart(8, '0')}`
+  }
+
+  // Generate human-readable serial format
+  const generateHumanReadableSerial = (projectCode: string, vintageStart: number, vintageEnd: number, batchId: string, startSerial: number, endSerial: number) => {
+    const batchCode = batchId.slice(-4).toUpperCase()
+    const serialStart = startSerial.toString().padStart(8, '0')
+    const serialEnd = endSerial.toString().padStart(8, '0')
+    
+    return `SIM-REG-${projectCode}-${vintageStart}-${vintageEnd}-${batchCode}-${serialStart}-${serialEnd}`
+  }
+
+  const projectCode = project.title.replace(/\s+/g, '').substring(0, 8).toUpperCase()
+  const serialRange = formatSerialRange(retirement.serialStart, retirement.serialEnd)
+  const humanReadableSerial = generateHumanReadableSerial(
+    projectCode,
+    batch.vintageStart,
+    batch.vintageEnd,
+    batch.id,
+    retirement.serialStart,
+    retirement.serialEnd
+  )
+
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -192,6 +220,16 @@ function generateCertificateHtml(retirement: any): string {
             <div class="field">
                 <div class="field-label">Credits Retired</div>
                 <div class="field-value">${retirement.quantity.toLocaleString()} tCO₂e</div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">Serial Range</div>
+                <div class="field-value" style="font-family: monospace; font-size: 16px; font-weight: bold;">${serialRange}</div>
+            </div>
+
+            <div class="field">
+                <div class="field-label">Unique Serial Identifier</div>
+                <div class="field-value" style="font-family: monospace; font-size: 12px; background-color: #f8f9fa; padding: 8px; border-radius: 4px; word-break: break-all;">${humanReadableSerial}</div>
             </div>
 
             <div class="field">
