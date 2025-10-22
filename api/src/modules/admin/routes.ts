@@ -49,7 +49,17 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.post('/users', {
     preHandler: [authenticate, requireRole([Role.ADMIN])],
     schema: {
-      body: createUserSchema,
+      body: {
+        type: 'object',
+        required: ['email', 'name', 'role', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          name: { type: 'string', minLength: 1 },
+          role: { type: 'string', enum: ['ADMIN', 'VERIFIER', 'ISSUER', 'VIEWER'] },
+          orgId: { type: 'string' },
+          password: { type: 'string', minLength: 8 },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -105,7 +115,15 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.patch('/users/:id', {
     preHandler: [authenticate, requireRole([Role.ADMIN])],
     schema: {
-      body: updateUserSchema,
+      body: {
+        type: 'object',
+        properties: {
+          email: { type: 'string', format: 'email' },
+          name: { type: 'string', minLength: 1 },
+          role: { type: 'string', enum: ['ADMIN', 'VERIFIER', 'ISSUER', 'VIEWER'] },
+          orgId: { type: 'string' },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -175,7 +193,14 @@ export async function adminRoutes(fastify: FastifyInstance) {
   fastify.post('/organizations', {
     preHandler: [authenticate, requireRole([Role.ADMIN])],
     schema: {
-      body: createOrganizationSchema,
+      body: {
+        type: 'object',
+        required: ['name', 'type'],
+        properties: {
+          name: { type: 'string', minLength: 1 },
+          type: { type: 'string', minLength: 1 },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest

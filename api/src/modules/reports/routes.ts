@@ -17,7 +17,7 @@ export async function reportRoutes(fastify: FastifyInstance) {
       prisma.project.count({
         where: {
           status: {
-            in: ['ACTIVE', 'APPROVED'],
+            in: ['APPROVED'],
           },
         },
       }),

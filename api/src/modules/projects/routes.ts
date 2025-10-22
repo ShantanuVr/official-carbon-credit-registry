@@ -33,7 +33,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
   fastify.post('/', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
     schema: {
-      body: createProjectSchema,
+      body: {
+        type: 'object',
+        required: ['title', 'description', 'country', 'region', 'methodology'],
+        properties: {
+          title: { type: 'string', minLength: 1 },
+          description: { type: 'string', minLength: 1 },
+          country: { type: 'string', minLength: 1 },
+          region: { type: 'string', minLength: 1 },
+          methodology: { type: 'string', minLength: 1 },
+          baselineRef: { type: 'string' },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -105,6 +116,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
         include: {
           organization: true,
           evidenceFiles: true,
+          creditBatches: true,
           _count: {
             select: {
               issuanceRequests: true,
@@ -156,13 +168,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
             retirements: true,
           },
         },
-        auditEvents: {
-          include: {
-            actor: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        },
       },
     })
 
@@ -182,7 +187,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
   fastify.patch('/:id', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
     schema: {
-      body: updateProjectSchema,
+      body: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', minLength: 1 },
+          description: { type: 'string', minLength: 1 },
+          country: { type: 'string', minLength: 1 },
+          region: { type: 'string', minLength: 1 },
+          methodology: { type: 'string', minLength: 1 },
+          baselineRef: { type: 'string' },
+          status: { type: 'string', enum: ['DRAFT', 'UNDER_REVIEW', 'APPROVED', 'NEEDS_CHANGES'] },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -205,6 +221,13 @@ export async function projectRoutes(fastify: FastifyInstance) {
       if (existingProject.status !== ProjectStatus.DRAFT) {
         throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Project cannot be modified in current state', 400)
       }
+      // Issuers cannot change status
+      if (data.status) {
+        delete data.status
+      }
+    } else if (authRequest.user.role === Role.ADMIN) {
+      // Admins can update any project and change status
+      // No additional restrictions
     }
 
     const updatedProject = await prisma.project.update({
@@ -236,7 +259,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
   fastify.post('/:id/submit', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
     schema: {
-      body: submitProjectSchema,
+      body: {
+        type: 'object',
+        properties: {
+          message: { type: 'string' },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -284,7 +312,13 @@ export async function projectRoutes(fastify: FastifyInstance) {
   fastify.post('/:id/request-changes', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.VERIFIER])],
     schema: {
-      body: requestChangesSchema,
+      body: {
+        type: 'object',
+        required: ['message'],
+        properties: {
+          message: { type: 'string', minLength: 1 },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -332,7 +366,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
   fastify.post('/:id/approve', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.VERIFIER])],
     schema: {
-      body: approveProjectSchema,
+      body: {
+        type: 'object',
+        properties: {
+          message: { type: 'string' },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -374,5 +413,57 @@ export async function projectRoutes(fastify: FastifyInstance) {
     })
 
     return updatedProject
+  })
+
+  // Delete project (only for DRAFT projects)
+  fastify.delete('/:id', {
+    preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const { id } = request.params as { id: string }
+
+    const existingProject = await prisma.project.findUnique({
+      where: { id },
+      include: { organization: true }
+    })
+
+    if (!existingProject) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Project not found', 404)
+    }
+
+    // Check permissions
+    if (authRequest.user.role === Role.ISSUER) {
+      if (existingProject.orgId !== authRequest.user.orgId) {
+        throw new AppError(ErrorCodes.FORBIDDEN, 'Access denied', 403)
+      }
+      if (existingProject.status !== ProjectStatus.DRAFT) {
+        throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Only draft projects can be deleted', 400)
+      }
+    } else if (authRequest.user.role === Role.ADMIN) {
+      // Admins can delete any DRAFT project
+      if (existingProject.status !== ProjectStatus.DRAFT) {
+        throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Only draft projects can be deleted', 400)
+      }
+    }
+
+    // Delete the project
+    await prisma.project.delete({
+      where: { id }
+    })
+
+    // Audit log
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: authRequest.user.id,
+        actorRole: authRequest.user.role,
+        entityType: 'Project',
+        entityId: id,
+        action: 'DELETE',
+        beforeJson: existingProject,
+        afterJson: null,
+      },
+    })
+
+    return { message: 'Project deleted successfully' }
   })
 }

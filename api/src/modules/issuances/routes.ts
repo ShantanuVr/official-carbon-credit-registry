@@ -33,7 +33,18 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
   fastify.post('/', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
     schema: {
-      body: createIssuanceSchema,
+      body: {
+        type: 'object',
+        required: ['projectId', 'vintageStart', 'vintageEnd', 'quantity', 'factorRef', 'evidenceIds'],
+        properties: {
+          projectId: { type: 'string' },
+          vintageStart: { type: 'number', minimum: 2000, maximum: 2100 },
+          vintageEnd: { type: 'number', minimum: 2000, maximum: 2100 },
+          quantity: { type: 'number', minimum: 1 },
+          factorRef: { type: 'string', minLength: 1 },
+          evidenceIds: { type: 'array', items: { type: 'string' } },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -48,7 +59,7 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
       throw new AppError(ErrorCodes.PROJECT_NOT_FOUND, 'Project not found', 404)
     }
 
-    if (project.status !== 'APPROVED' && project.status !== 'ACTIVE') {
+    if (project.status !== 'APPROVED') {
       throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Project must be approved to create issuance', 400)
     }
 
@@ -57,16 +68,18 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
       throw new AppError(ErrorCodes.FORBIDDEN, 'Access denied', 403)
     }
 
-    // Validate evidence files exist
-    const evidenceFiles = await prisma.evidenceFile.findMany({
-      where: {
-        id: { in: data.evidenceIds },
-        projectId: data.projectId,
-      },
-    })
+    // Validate evidence files exist (only if evidenceIds provided)
+    if (data.evidenceIds.length > 0) {
+      const evidenceFiles = await prisma.evidenceFile.findMany({
+        where: {
+          id: { in: data.evidenceIds },
+          projectId: data.projectId,
+        },
+      })
 
-    if (evidenceFiles.length !== data.evidenceIds.length) {
-      throw new AppError(ErrorCodes.EVIDENCE_NOT_FOUND, 'Some evidence files not found', 400)
+      if (evidenceFiles.length !== data.evidenceIds.length) {
+        throw new AppError(ErrorCodes.EVIDENCE_NOT_FOUND, 'Some evidence files not found', 400)
+      }
     }
 
     const issuance = await prisma.issuanceRequest.create({
@@ -250,7 +263,13 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
   fastify.post('/:id/request-changes', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.VERIFIER])],
     schema: {
-      body: requestChangesSchema,
+      body: {
+        type: 'object',
+        required: ['message'],
+        properties: {
+          message: { type: 'string', minLength: 1 },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -301,7 +320,12 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
   fastify.post('/:id/approve', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.VERIFIER])],
     schema: {
-      body: approveIssuanceSchema,
+      body: {
+        type: 'object',
+        properties: {
+          message: { type: 'string' },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -352,7 +376,12 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
   fastify.post('/:id/finalize', {
     preHandler: [authenticate, requireRole([Role.ADMIN])],
     schema: {
-      body: finalizeIssuanceSchema,
+      body: {
+        type: 'object',
+        properties: {
+          message: { type: 'string' },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -382,7 +411,10 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
 
     // Perform finalization in transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Create credit batch with serial range
+      // Get the next global serial number for this batch
+      const startSerial = await serialAllocator.getNextGlobalSerialNumber(issuance.quantity)
+      
+      // Create credit batch with global serial range
       const creditBatch = await tx.creditBatch.create({
         data: {
           projectId: issuance.projectId,
@@ -391,8 +423,8 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
           vintageEnd: issuance.vintageEnd,
           totalIssued: issuance.quantity,
           classId: `class_${issuance.projectId}_${issuance.vintageStart}_${issuance.vintageEnd}`,
-          serialStart: 1,
-          serialEnd: issuance.quantity,
+          serialStart: startSerial,
+          serialEnd: startSerial + issuance.quantity - 1,
         },
       })
 
@@ -405,12 +437,15 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
         },
       })
 
-      // Create initial serial range for the issuer
-      await serialAllocator.createInitialSerialRange(
-        creditBatch.id,
-        issuance.project.orgId,
-        issuance.quantity
-      )
+      // Create initial serial range for the issuer using the same global serial numbers
+      await tx.serialRange.create({
+        data: {
+          batchId: creditBatch.id,
+          ownerOrgId: issuance.project.orgId,
+          startSerial: startSerial,
+          endSerial: startSerial + issuance.quantity - 1,
+        },
+      })
 
       // Update issuance with adapter response and finalize
       const updatedIssuance = await tx.issuanceRequest.update({
@@ -463,5 +498,126 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
         ),
       },
     }
+  })
+
+  // Update issuance request (only for PENDING status)
+  fastify.patch('/:id', {
+    preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          quantity: { type: 'number', minimum: 1 },
+          vintageStart: { type: 'number', minimum: 2000, maximum: 2100 },
+          vintageEnd: { type: 'number', minimum: 2000, maximum: 2100 },
+          factorRef: { type: 'string', minLength: 1 },
+        },
+        required: ['quantity', 'vintageStart', 'vintageEnd', 'factorRef'],
+      },
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const { id } = request.params as { id: string }
+    const data = request.body as {
+      quantity: number
+      vintageStart: number
+      vintageEnd: number
+      factorRef: string
+    }
+
+    const existingIssuance = await prisma.issuanceRequest.findUnique({
+      where: { id },
+      include: { project: true }
+    })
+
+    if (!existingIssuance) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Issuance request not found', 404)
+    }
+
+    // Check permissions
+    if (authRequest.user.role === Role.ISSUER) {
+      if (existingIssuance.project.orgId !== authRequest.user.orgId) {
+        throw new AppError(ErrorCodes.FORBIDDEN, 'Access denied', 403)
+      }
+    }
+
+    // Only allow editing DRAFT requests
+    if (existingIssuance.status !== IssuanceStatus.DRAFT) {
+      throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Only draft issuance requests can be edited', 400)
+    }
+
+    const updatedIssuance = await prisma.issuanceRequest.update({
+      where: { id },
+      data: {
+        quantity: data.quantity,
+        vintageStart: data.vintageStart,
+        vintageEnd: data.vintageEnd,
+        factorRef: data.factorRef,
+      },
+      include: { project: true }
+    })
+
+    // Audit log
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: authRequest.user.id,
+        actorRole: authRequest.user.role,
+        entityType: 'IssuanceRequest',
+        entityId: id,
+        action: 'UPDATE',
+        beforeJson: existingIssuance,
+        afterJson: updatedIssuance,
+      },
+    })
+
+    return updatedIssuance
+  })
+
+  // Delete issuance request (only for PENDING status)
+  fastify.delete('/:id', {
+    preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const { id } = request.params as { id: string }
+
+    const existingIssuance = await prisma.issuanceRequest.findUnique({
+      where: { id },
+      include: { project: true }
+    })
+
+    if (!existingIssuance) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Issuance request not found', 404)
+    }
+
+    // Check permissions
+    if (authRequest.user.role === Role.ISSUER) {
+      if (existingIssuance.project.orgId !== authRequest.user.orgId) {
+        throw new AppError(ErrorCodes.FORBIDDEN, 'Access denied', 403)
+      }
+    }
+
+    // Only allow deleting DRAFT requests
+    if (existingIssuance.status !== IssuanceStatus.DRAFT) {
+      throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Only draft issuance requests can be deleted', 400)
+    }
+
+    await prisma.issuanceRequest.delete({
+      where: { id }
+    })
+
+    // Audit log
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: authRequest.user.id,
+        actorRole: authRequest.user.role,
+        entityType: 'IssuanceRequest',
+        entityId: id,
+        action: 'DELETE',
+        beforeJson: existingIssuance,
+        afterJson: null,
+      },
+    })
+
+    return { message: 'Issuance request deleted successfully' }
   })
 }

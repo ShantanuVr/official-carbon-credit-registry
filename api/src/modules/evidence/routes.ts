@@ -17,7 +17,16 @@ export async function evidenceRoutes(fastify: FastifyInstance) {
   fastify.post('/projects/:projectId/evidence', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
     schema: {
-      body: uploadEvidenceSchema,
+      body: {
+        type: 'object',
+        required: ['fileName', 'sizeBytes', 'sha256'],
+        properties: {
+          fileName: { type: 'string', minLength: 1 },
+          sizeBytes: { type: 'number', minimum: 1 },
+          sha256: { type: 'string', minLength: 64 },
+          cid: { type: 'string' },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest

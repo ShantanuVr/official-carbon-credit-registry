@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '../../index'
 import { AppError, ErrorCodes } from '../../lib/errors'
 import { logger } from '../../lib/logger'
+import { authenticate } from '../../lib/auth'
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -18,7 +19,14 @@ export async function authRoutes(fastify: FastifyInstance) {
   // Login
   fastify.post('/login', {
     schema: {
-      body: loginSchema,
+      body: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string', minLength: 1 },
+        },
+      },
       response: {
         200: {
           type: 'object',
@@ -84,7 +92,13 @@ export async function authRoutes(fastify: FastifyInstance) {
   // Refresh token
   fastify.post('/refresh', {
     schema: {
-      body: refreshSchema,
+      body: {
+        type: 'object',
+        required: ['refreshToken'],
+        properties: {
+          refreshToken: { type: 'string' },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { refreshToken } = request.body as z.infer<typeof refreshSchema>
@@ -117,7 +131,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   // Logout
   fastify.post('/logout', {
-    preHandler: [fastify.authenticate],
+    preHandler: [authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as any
     
@@ -131,7 +145,7 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   // Get current user
   fastify.get('/me', {
-    preHandler: [fastify.authenticate],
+    preHandler: [authenticate],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as any
     

@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
@@ -74,6 +75,88 @@ async function registerRoutes() {
 
   fastify.get('/ready', async (request, reply) => {
     return { status: 'ready', timestamp: new Date().toISOString() }
+  })
+
+  // Public stats endpoint
+  fastify.get('/public/stats', async (request, reply) => {
+    try {
+      const projects = await prisma.project.findMany({
+        include: {
+          creditBatches: true
+        }
+      })
+
+      const totalProjects = projects.length
+      const totalCreditsIssued = projects.reduce((sum, project) => 
+        sum + project.creditBatches.reduce((batchSum, batch) => batchSum + batch.totalIssued, 0), 0
+      )
+      const totalCreditsRetired = projects.reduce((sum, project) => 
+        sum + project.creditBatches.reduce((batchSum, batch) => batchSum + batch.totalRetired, 0), 0
+      )
+      const activeProjects = projects.filter(project => 
+        project.status === 'APPROVED'
+      ).length
+
+      return {
+        totalProjects,
+        totalCreditsIssued,
+        totalCreditsRetired,
+        activeProjects
+      }
+    } catch (error) {
+      reply.code(500)
+      return { error: 'Failed to fetch stats' }
+    }
+  })
+
+  // Public projects endpoint
+  fastify.get('/public/projects', async (request, reply) => {
+    try {
+      const projects = await prisma.project.findMany({
+        where: {
+          status: 'APPROVED' // Only show approved projects publicly
+        },
+        include: {
+          organization: {
+            select: {
+              name: true,
+              type: true
+            }
+          },
+          creditBatches: {
+            select: {
+              totalIssued: true,
+              totalRetired: true,
+              vintageStart: true,
+              vintageEnd: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+
+      return {
+        projects: projects.map(project => ({
+          id: project.id,
+          title: project.title,
+          description: project.description,
+          country: project.country,
+          region: project.region,
+          methodology: project.methodology,
+          status: project.status,
+          organization: project.organization,
+          creditsIssued: project.creditBatches.reduce((sum, batch) => sum + batch.totalIssued, 0),
+          creditsRetired: project.creditBatches.reduce((sum, batch) => sum + batch.totalRetired, 0),
+          createdAt: project.createdAt,
+          updatedAt: project.updatedAt
+        }))
+      }
+    } catch (error) {
+      reply.code(500)
+      return { error: 'Failed to fetch projects' }
+    }
   })
 
   // API routes

@@ -26,11 +26,20 @@ export async function creditRoutes(fastify: FastifyInstance) {
   // Get credit holdings with serial ranges
   fastify.get('/holdings', {
     preHandler: [authenticate],
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          orgId: { type: 'string' },
+        },
+      },
+    },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
-    const query = request.query as any
+    const query = request.query as { orgId?: string }
 
-    const ownerId = query.orgId === 'me' ? authRequest.user.orgId : query.orgId
+    // Default to current user's organization if no orgId provided
+    const ownerId = query.orgId === 'me' ? authRequest.user.orgId : (query.orgId || authRequest.user.orgId)
 
     if (!ownerId) {
       throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Organization ID is required', 400)
@@ -138,7 +147,16 @@ export async function creditRoutes(fastify: FastifyInstance) {
   fastify.post('/transfer', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
     schema: {
-      body: transferCreditsSchema,
+      body: {
+        type: 'object',
+        required: ['toOrgId', 'batchId', 'quantity'],
+        properties: {
+          from: { type: 'string' },
+          toOrgId: { type: 'string' },
+          batchId: { type: 'string' },
+          quantity: { type: 'number', minimum: 1 },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
@@ -301,7 +319,16 @@ export async function creditRoutes(fastify: FastifyInstance) {
   fastify.post('/retire', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.ISSUER])],
     schema: {
-      body: retireCreditsSchema,
+      body: {
+        type: 'object',
+        required: ['batchId', 'quantity', 'purpose'],
+        properties: {
+          batchId: { type: 'string' },
+          quantity: { type: 'number', minimum: 1 },
+          purpose: { type: 'string', minLength: 1 },
+          beneficiary: { type: 'string' },
+        },
+      },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest

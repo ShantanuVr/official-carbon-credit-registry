@@ -197,19 +197,68 @@ export class SerialAllocator {
 
   /**
    * Create initial serial range for issuer when batch is finalized
+   * This method is deprecated - use createSerialRangeWithGlobalNumbers instead
    */
   async createInitialSerialRange(
     batchId: string,
     orgId: string,
     quantity: number
   ): Promise<SerialRange> {
+    // Get the next global serial number
+    const startSerial = await this.getNextGlobalSerialNumber(quantity)
+    
     return await this.prisma.serialRange.create({
       data: {
         batchId,
         ownerOrgId: orgId,
-        startSerial: 1,
-        endSerial: quantity,
+        startSerial,
+        endSerial: startSerial + quantity - 1,
       },
+    })
+  }
+
+  /**
+   * Create serial range with specific global serial numbers (for transfers)
+   */
+  async createSerialRangeWithGlobalNumbers(
+    batchId: string,
+    orgId: string,
+    startSerial: number,
+    endSerial: number
+  ): Promise<SerialRange> {
+    return await this.prisma.serialRange.create({
+      data: {
+        batchId,
+        ownerOrgId: orgId,
+        startSerial,
+        endSerial,
+      },
+    })
+  }
+
+  /**
+   * Get the next global serial number(s) and increment the counter
+   */
+  async getNextGlobalSerialNumber(quantity: number): Promise<number> {
+    return await this.prisma.$transaction(async (tx) => {
+      // Get the global counter
+      let counter = await tx.globalSerialCounter.findFirst()
+      
+      if (!counter) {
+        counter = await tx.globalSerialCounter.create({
+          data: { counter: 0 }
+        })
+      }
+
+      const startSerial = counter.counter + 1
+      
+      // Update the counter
+      await tx.globalSerialCounter.update({
+        where: { id: counter.id },
+        data: { counter: counter.counter + quantity }
+      })
+
+      return startSerial
     })
   }
 

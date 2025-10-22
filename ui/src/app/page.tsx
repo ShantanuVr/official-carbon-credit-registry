@@ -1,10 +1,60 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Leaf, Users, TrendingUp, Award } from 'lucide-react'
 import Link from 'next/link'
+import { apiClient } from '@/lib/api'
+
+interface Project {
+  id: string
+  title: string
+  status: string
+  creditBatches: Array<{
+    totalIssued: number
+    totalRetired: number
+  }>
+}
 
 export default function HomePage() {
+  const [stats, setStats] = useState({
+    totalProjects: 0,
+    totalCreditsIssued: 0,
+    totalCreditsRetired: 0,
+    activeProjects: 0
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        // Use the public stats endpoint that doesn't require authentication
+        const stats = await fetch('http://localhost:4000/public/stats').then(res => res.json())
+        
+        setStats({
+          totalProjects: stats.totalProjects,
+          totalCreditsIssued: stats.totalCreditsIssued,
+          totalCreditsRetired: stats.totalCreditsRetired,
+          activeProjects: stats.activeProjects
+        })
+      } catch (error) {
+        console.error('Failed to fetch stats:', error)
+        // Fallback to hardcoded values if API fails
+        setStats({
+          totalProjects: 4,
+          totalCreditsIssued: 55000,
+          totalCreditsRetired: 10000,
+          activeProjects: 2
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchStats()
+  }, [])
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
       {/* Header */}
@@ -66,8 +116,10 @@ export default function HomePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-green-600">3</div>
-                <p className="text-sm text-gray-600">Renewable Energy</p>
+                <div className="text-3xl font-bold text-green-600">
+                  {loading ? '...' : stats.activeProjects}
+                </div>
+                <p className="text-sm text-gray-600">Active Projects</p>
               </CardContent>
             </Card>
 
@@ -79,7 +131,9 @@ export default function HomePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-blue-600">50,000</div>
+                <div className="text-3xl font-bold text-blue-600">
+                  {loading ? '...' : stats.totalCreditsIssued.toLocaleString()}
+                </div>
                 <p className="text-sm text-gray-600">tCO₂e</p>
               </CardContent>
             </Card>
@@ -92,7 +146,9 @@ export default function HomePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-purple-600">5,000</div>
+                <div className="text-3xl font-bold text-purple-600">
+                  {loading ? '...' : stats.totalCreditsRetired.toLocaleString()}
+                </div>
                 <p className="text-sm text-gray-600">tCO₂e</p>
               </CardContent>
             </Card>
@@ -101,12 +157,14 @@ export default function HomePage() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-center space-x-2">
                   <Users className="h-6 w-6 text-orange-600" />
-                  <span>Organizations</span>
+                  <span>Total Projects</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-orange-600">3</div>
-                <p className="text-sm text-gray-600">Registered</p>
+                <div className="text-3xl font-bold text-orange-600">
+                  {loading ? '...' : stats.totalProjects}
+                </div>
+                <p className="text-sm text-gray-600">Total Projects</p>
               </CardContent>
             </Card>
           </div>

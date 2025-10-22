@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
-import { prisma } from '../index'
 import { Role } from '@prisma/client'
+import { prisma } from '../index'
 
 export interface AuthenticatedRequest extends FastifyRequest {
   user: {
@@ -13,105 +13,46 @@ export interface AuthenticatedRequest extends FastifyRequest {
 
 export async function authenticate(request: FastifyRequest, reply: FastifyReply) {
   try {
-    const token = request.headers.authorization?.replace('Bearer ', '')
+    const decoded = await request.jwtVerify()
     
-    if (!token) {
-      reply.code(401).send({
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'No token provided',
-        },
-      })
-      return
-    }
-
-    const decoded = request.server.jwt.verify(token) as any
-    
+    // Fetch user details from database
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       include: { organization: true },
     })
 
     if (!user) {
-      reply.code(401).send({
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Invalid token',
-        },
-      })
+      reply.code(401).send({ error: 'User not found' })
       return
     }
 
+    // Attach user to request
     ;(request as AuthenticatedRequest).user = {
       id: user.id,
       email: user.email,
       role: user.role,
       orgId: user.orgId,
     }
-  } catch (error) {
-    reply.code(401).send({
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Invalid token',
-      },
-    })
+  } catch (err) {
+    reply.code(401).send({ error: 'Unauthorized' })
   }
 }
 
-export function requireRole(roles: Role[]) {
+export function requireRole(allowedRoles: Role[]) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
-    
-    if (!authRequest.user) {
-      reply.code(401).send({
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication required',
-        },
-      })
-      return
-    }
-
-    if (!roles.includes(authRequest.user.role)) {
-      reply.code(403).send({
-        error: {
-          code: 'FORBIDDEN',
-          message: 'Insufficient permissions',
-        },
-      })
-      return
+    if (!authRequest.user || !allowedRoles.includes(authRequest.user.role)) {
+      reply.code(403).send({ error: 'Forbidden' })
     }
   }
 }
 
-export function requireOrgAccess() {
+export function requireOrgAccess(orgId: string) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
-    
-    if (!authRequest.user) {
-      reply.code(401).send({
-        error: {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication required',
-        },
-      })
-      return
-    }
-
-    // Admin and Verifier can access any organization
-    if (authRequest.user.role === 'ADMIN' || authRequest.user.role === 'VERIFIER') {
-      return
-    }
-
-    // Issuer can only access their own organization
-    if (authRequest.user.role === 'ISSUER' && !authRequest.user.orgId) {
-      reply.code(403).send({
-        error: {
-          code: 'FORBIDDEN',
-          message: 'Organization access required',
-        },
-      })
-      return
+    if (!authRequest.user || 
+        (authRequest.user.role !== Role.ADMIN && authRequest.user.orgId !== orgId)) {
+      reply.code(403).send({ error: 'Forbidden' })
     }
   }
 }

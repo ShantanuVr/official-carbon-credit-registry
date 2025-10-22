@@ -90,7 +90,6 @@ model Project {
   evidenceFiles   EvidenceFile[]
   issuanceRequests IssuanceRequest[]
   creditBatches   CreditBatch[]
-  auditEvents     AuditEvent[]
 
   @@map("projects")
 }
@@ -127,7 +126,6 @@ model IssuanceRequest {
 
   project     Project      @relation(fields: [projectId], references: [id])
   creditBatch CreditBatch?
-  auditEvents AuditEvent[]
 
   @@map("issuance_requests")
 }
@@ -232,4 +230,12 @@ model AuditEvent {
   actor User @relation(fields: [actorUserId], references: [id])
 
   @@map("audit_events")
+}
+
+model GlobalSerialCounter {
+  id        String   @id @default(cuid())
+  counter   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@map("global_serial_counter")
 }
