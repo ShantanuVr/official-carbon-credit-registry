@@ -31,6 +31,22 @@ export async function retirementRoutes(fastify: FastifyInstance) {
       throw new AppError(ErrorCodes.NOT_FOUND, 'Retirement certificate not found', 404)
     }
 
+    // Check if client wants HTML or JSON
+    const acceptHeader = request.headers.accept || ''
+    if (acceptHeader.includes('application/json')) {
+      return {
+        authority: "credit",
+        watermark: {
+          authority: "CREDIT — OFF‑CHAIN",
+          issuedBy: "Official Registry (Demo)"
+        },
+        ...retirement,
+        tokenization: {
+          status: "NOT_REQUESTED"
+        }
+      }
+    }
+
     // Generate certificate HTML
     const certificateHtml = generateCertificateHtml(retirement)
 
@@ -277,8 +293,17 @@ function generateCertificateHtml(retirement: any): string {
         </div>
 
         <div class="footer">
+            <div style="background-color: #d4edda; border: 2px solid #28a745; padding: 15px; margin: 20px 0; border-radius: 8px; text-align: center;">
+                <div style="font-weight: bold; color: #155724; font-size: 16px;">📜 CREDIT — OFF‑CHAIN</div>
+                <div style="color: #155724; font-size: 14px; margin-top: 5px;">Source of Record: Official Registry (Demo)</div>
+            </div>
             <p>This certificate verifies the permanent retirement of carbon credits from the Official Carbon Credit Registry.</p>
             <p>Certificate ID: ${retirement.certificateId} | Generated: ${new Date().toISOString()}</p>
+            <p style="font-size: 12px; color: #6c757d; margin-top: 20px;">
+                <strong>Authority:</strong> Credit (Off-chain) | 
+                <strong>Tokenization:</strong> Representational only | 
+                <strong>Registry:</strong> Authoritative source
+            </p>
         </div>
     </div>
 </body>

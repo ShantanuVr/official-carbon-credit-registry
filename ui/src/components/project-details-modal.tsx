@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { ProvenancePill, TokenizationCard } from '@/components/authority-banner'
 import { MapPin, Calendar, Building, Hash, Users, FileText, Activity } from 'lucide-react'
 
 interface SerialRange {
@@ -262,9 +263,19 @@ Official Carbon Credit Registry Simulator
                           {range.quantity.toLocaleString()} credits
                         </Badge>
                       </div>
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs text-gray-600 mb-2">
                         Serial Range: {range.startSerial.toLocaleString()} - {range.endSerial.toLocaleString()}
                       </div>
+                      <ProvenancePill 
+                        classId={project.id.slice(-8).toUpperCase()}
+                        startSerial={range.startSerial}
+                        endSerial={range.endSerial}
+                        className="mb-2"
+                      />
+                      <TokenizationCard 
+                        status="NOT_REQUESTED"
+                        className="mt-2"
+                      />
                     </div>
                   ))}
                 </div>

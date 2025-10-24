@@ -11,6 +11,7 @@ import { AdminDashboard } from '@/components/admin-dashboard'
 import { IssuerDashboard } from '@/components/issuer-dashboard'
 import { VerifierDashboard } from '@/components/verifier-dashboard'
 import { ViewerDashboard } from '@/components/viewer-dashboard'
+import { AuthorityBanner } from '@/components/authority-banner'
 
 export default function DashboardPage() {
   const { user, loading, logout, isAuthenticated } = useAuth()
@@ -91,6 +92,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        <AuthorityBanner />
       </header>
 
       {/* Main Content */}

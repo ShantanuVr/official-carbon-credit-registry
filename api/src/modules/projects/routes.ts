@@ -130,7 +130,13 @@ export async function projectRoutes(fastify: FastifyInstance) {
     ])
 
     return {
-      projects,
+      authority: "credit",
+      projects: projects.map(project => ({
+        ...project,
+        tokenization: {
+          status: "NOT_REQUESTED"
+        }
+      })),
       pagination: {
         page,
         limit,
@@ -180,7 +186,13 @@ export async function projectRoutes(fastify: FastifyInstance) {
       throw new AppError(ErrorCodes.FORBIDDEN, 'Access denied', 403)
     }
 
-    return project
+    return {
+      authority: "credit",
+      ...project,
+      tokenization: {
+        status: "NOT_REQUESTED"
+      }
+    }
   })
 
   // Update project

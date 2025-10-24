@@ -155,7 +155,13 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
     ])
 
     return {
-      issuances,
+      authority: "credit",
+      issuances: issuances.map(issuance => ({
+        ...issuance,
+        tokenization: {
+          status: "NOT_REQUESTED"
+        }
+      })),
       pagination: {
         page,
         limit,

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ProjectDetailsModal } from '@/components/project-details-modal'
+import { AuthorityBanner } from '@/components/authority-banner'
 import { Leaf, MapPin, Calendar, Building, Hash, Search, Filter, Home } from 'lucide-react'
 import { apiClient } from '@/lib/api'
 import { useAuth } from '@/contexts/auth-context'
@@ -164,6 +165,8 @@ export default function ExplorerPage() {
               </div>
             </div>
           </div>
+          
+          <AuthorityBanner />
           
           {/* Filter Panel */}
           {showFilters && (

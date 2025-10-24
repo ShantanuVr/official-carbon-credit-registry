@@ -98,6 +98,7 @@ async function registerRoutes() {
       ).length
 
       return {
+        authority: "credit",
         totalProjects,
         totalCreditsIssued,
         totalCreditsRetired,
@@ -138,6 +139,7 @@ async function registerRoutes() {
       })
 
       return {
+        authority: "credit",
         projects: projects.map(project => ({
           id: project.id,
           title: project.title,
@@ -150,12 +152,62 @@ async function registerRoutes() {
           creditsIssued: project.creditBatches.reduce((sum, batch) => sum + batch.totalIssued, 0),
           creditsRetired: project.creditBatches.reduce((sum, batch) => sum + batch.totalRetired, 0),
           createdAt: project.createdAt,
-          updatedAt: project.updatedAt
+          updatedAt: project.updatedAt,
+          tokenization: {
+            status: "NOT_REQUESTED"
+          }
         }))
       }
     } catch (error) {
       reply.code(500)
       return { error: 'Failed to fetch projects' }
+    }
+  })
+
+  // Tokenization read-only endpoints
+  fastify.get('/tokenization/classes/:classId', async (request, reply) => {
+    try {
+      const { classId } = request.params as { classId: string }
+      
+      // This is a read-only endpoint that mirrors adapter status
+      // In a real implementation, this would query the adapter service
+      return {
+        authority: "credit",
+        classId,
+        tokenization: {
+          status: "NOT_REQUESTED",
+          chainId: null,
+          contract: null,
+          tokenId: null
+        },
+        note: "Tokenization status is representational only; registry remains authoritative for credits"
+      }
+    } catch (error) {
+      reply.code(500)
+      return { error: 'Failed to fetch tokenization status' }
+    }
+  })
+
+  fastify.get('/tokenization/retirements/:certificateId', async (request, reply) => {
+    try {
+      const { certificateId } = request.params as { certificateId: string }
+      
+      // This is a read-only endpoint that shows on-chain burn status
+      // In a real implementation, this would query the blockchain
+      return {
+        authority: "credit",
+        certificateId,
+        tokenization: {
+          status: "NOT_REQUESTED",
+          chainId: null,
+          contract: null,
+          tokenId: null
+        },
+        note: "On-chain burn status is representational only; registry retirement record is authoritative"
+      }
+    } catch (error) {
+      reply.code(500)
+      return { error: 'Failed to fetch retirement tokenization status' }
     }
   })
 

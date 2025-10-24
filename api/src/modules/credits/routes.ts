@@ -69,28 +69,34 @@ export async function creditRoutes(fastify: FastifyInstance) {
       },
     })
 
-    return holdings.map(holding => ({
-      batchId: holding.batchId,
-      projectId: holding.batch.projectId,
-      vintageStart: holding.batch.vintageStart,
-      vintageEnd: holding.batch.vintageEnd,
-      quantity: holding.quantity,
-      project: holding.batch.project,
-      ranges: holding.batch.serialRanges.map(range => ({
-        startSerial: range.startSerial,
-        endSerial: range.endSerial,
-        quantity: range.endSerial - range.startSerial + 1,
-        formatted: serialAllocator.formatSerialRange(range.startSerial, range.endSerial),
-        humanReadable: serialAllocator.generateHumanReadableSerial(
-          holding.batch.project.title.replace(/\s+/g, '').substring(0, 8).toUpperCase(),
-          holding.batch.vintageStart,
-          holding.batch.vintageEnd,
-          holding.batchId,
-          range.startSerial,
-          range.endSerial
-        ),
-      })),
-    }))
+    return {
+      authority: "credit",
+      holdings: holdings.map(holding => ({
+        batchId: holding.batchId,
+        projectId: holding.batch.projectId,
+        vintageStart: holding.batch.vintageStart,
+        vintageEnd: holding.batch.vintageEnd,
+        quantity: holding.quantity,
+        project: holding.batch.project,
+        ranges: holding.batch.serialRanges.map(range => ({
+          startSerial: range.startSerial,
+          endSerial: range.endSerial,
+          quantity: range.endSerial - range.startSerial + 1,
+          formatted: serialAllocator.formatSerialRange(range.startSerial, range.endSerial),
+          humanReadable: serialAllocator.generateHumanReadableSerial(
+            holding.batch.project.title.replace(/\s+/g, '').substring(0, 8).toUpperCase(),
+            holding.batch.vintageStart,
+            holding.batch.vintageEnd,
+            holding.batchId,
+            range.startSerial,
+            range.endSerial
+          ),
+        })),
+        tokenization: {
+          status: "NOT_REQUESTED"
+        }
+      }))
+    }
   })
 
   // Get credit balance (legacy endpoint for compatibility)

@@ -23,4 +23,7 @@ export const logger = pino({
       statusCode: res.statusCode,
     }),
   },
+  base: {
+    authority: "credit"
+  }
 })
