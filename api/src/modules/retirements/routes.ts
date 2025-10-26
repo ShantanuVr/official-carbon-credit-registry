@@ -32,20 +32,21 @@ export async function retirementRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const authRequest = request as AuthenticatedRequest
-    const data = request.body as z.infer<typeof createRetirementSchema>
+    try {
+      const authRequest = request as AuthenticatedRequest
+      const data = request.body as z.infer<typeof createRetirementSchema>
 
-    // Get batch details
-    const batch = await prisma.creditBatch.findUnique({
-      where: { id: data.batchId },
-      include: {
-        project: {
-          include: {
-            organization: true,
+      // Get batch details
+      const batch = await prisma.creditBatch.findUnique({
+        where: { id: data.batchId },
+        include: {
+          project: {
+            include: {
+              organization: true,
+            },
           },
         },
-      },
-    })
+      })
 
     if (!batch) {
       throw new AppError(ErrorCodes.NOT_FOUND, 'Credit batch not found', 404)
@@ -114,10 +115,14 @@ export async function retirementRoutes(fastify: FastifyInstance) {
       },
     })
 
-    reply.code(201)
-    return {
-      ...result,
-      certificateUrl: `/retirements/${result.certificateId}`,
+      reply.code(201)
+      return {
+        ...result,
+        certificateUrl: `/retirements/${result.certificateId}`,
+      }
+    } catch (error: any) {
+      console.error('Retirement creation error:', error)
+      throw new AppError(ErrorCodes.INTERNAL_ERROR, error.message || 'Failed to create retirement', 500)
     }
   })
 
