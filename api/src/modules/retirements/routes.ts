@@ -60,13 +60,17 @@ export async function retirementRoutes(fastify: FastifyInstance) {
     // Check available quantity
     const available = batch.totalIssued - batch.totalRetired
     if (data.quantity > available) {
-      throw new AppError(ErrorCodes.INVALID_INPUT, `Only ${available} credits available`, 400)
+      throw new AppError(ErrorCodes.INVALID_INPUT, `Only ${available} credits available for retirement`, 400)
+    }
+    if (data.quantity <= 0) {
+      throw new AppError(ErrorCodes.INVALID_INPUT, 'Quantity must be greater than 0', 400)
     }
 
     // Generate certificate ID
-    const certificateId = `cert_${batch.id}_${Date.now()}`
+    const certificateId = `cert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
     // Determine serial range for retirement
+    // Retirements consume serials sequentially from the beginning
     const retirementStartSerial = batch.serialStart + batch.totalRetired
     const retirementEndSerial = retirementStartSerial + data.quantity - 1
 
