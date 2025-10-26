@@ -85,7 +85,7 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
     const issuance = await prisma.issuanceRequest.create({
       data: {
         ...data,
-        status: IssuanceStatus.DRAFT,
+        status: IssuanceStatus.UNDER_REVIEW, // Automatically submit for review when created
       },
       include: {
         project: {

@@ -257,7 +257,7 @@ export function AdminDashboard() {
     return matchesSearch && matchesStatus
   })
 
-  const pendingIssuances = issuanceRequests.filter(req => req.status === 'DRAFT')
+  const pendingIssuances = issuanceRequests.filter(req => req.status === 'UNDER_REVIEW')
   const pendingProjectReviews = projects.filter(p => p.status === 'UNDER_REVIEW')
 
   if (loading) {
