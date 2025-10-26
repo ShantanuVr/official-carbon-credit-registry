@@ -176,13 +176,6 @@ export async function projectRoutes(fastify: FastifyInstance) {
             serialStart: true,
             serialEnd: true,
             createdAt: true,
-            holdings: {
-              include: {
-                organization: true,
-              },
-            },
-            transfers: true,
-            retirements: true,
           },
         },
       },
