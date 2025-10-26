@@ -322,6 +322,75 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
     return updatedIssuance
   })
 
+  // Reject issuance
+  fastify.post('/:id/reject', {
+    preHandler: [authenticate, requireRole([Role.ADMIN, Role.VERIFIER])],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['reason'],
+        properties: {
+          reason: { type: 'string', minLength: 1 },
+        },
+      },
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const params = request.params as { id: string }
+    const data = request.body as z.infer<typeof requestChangesSchema>
+
+    const issuance = await prisma.issuanceRequest.findUnique({
+      where: { id: params.id },
+      include: {
+        project: {
+          include: {
+            organization: true,
+          },
+        },
+      },
+    })
+
+    if (!issuance) {
+      throw new AppError(ErrorCodes.ISSUANCE_NOT_FOUND, 'Issuance not found', 404)
+    }
+
+    if (issuance.status !== IssuanceStatus.UNDER_REVIEW) {
+      throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Issuance must be under review to reject', 400)
+    }
+
+    const updatedIssuance = await prisma.issuanceRequest.update({
+      where: { id: params.id },
+      data: { 
+        status: IssuanceStatus.REJECTED,
+        rejectionReason: data.reason,
+        rejectedBy: authRequest.user.id,
+        rejectedAt: new Date(),
+      },
+      include: {
+        project: {
+          include: {
+            organization: true,
+          },
+        },
+      },
+    })
+
+    // Audit log
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: authRequest.user.id,
+        actorRole: authRequest.user.role,
+        entityType: 'IssuanceRequest',
+        entityId: updatedIssuance.id,
+        action: 'REJECT',
+        beforeJson: issuance,
+        afterJson: updatedIssuance,
+      },
+    })
+
+    return updatedIssuance
+  })
+
   // Approve issuance
   fastify.post('/:id/approve', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.VERIFIER])],

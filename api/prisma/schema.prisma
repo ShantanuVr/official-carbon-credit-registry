@@ -124,6 +124,9 @@ model IssuanceRequest {
   approvals    Json?          // JSON object with approval history
   adapterTxId  String?        // Transaction ID from adapter
   onchainHash  String?        // On-chain hash reference
+  rejectionReason String?     // Reason for rejection if status is REJECTED
+  rejectedBy   String?        // User ID who rejected the issuance
+  rejectedAt   DateTime?      // When the issuance was rejected
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
