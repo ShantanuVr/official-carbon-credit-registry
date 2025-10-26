@@ -319,6 +319,14 @@ export function IssuerDashboard() {
     }
 
     try {
+      // Log what we're sending
+      console.log('Retiring credits with:', {
+        batchId: selectedBatchForRetirement.batch.id,
+        batch: selectedBatchForRetirement.batch,
+        quantity: retirementForm.quantity,
+        reason: retirementForm.reason
+      })
+      
       // Create retirement via API
       await apiClient.post('/retirements', {
         batchId: selectedBatchForRetirement.batch.id,
