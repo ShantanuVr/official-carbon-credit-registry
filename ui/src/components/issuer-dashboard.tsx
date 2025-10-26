@@ -643,13 +643,13 @@ export function IssuerDashboard() {
                         Delete
                       </Button>
                     </div>
-                    {/* Action buttons at bottom */}
+                    {/* Action buttons at bottom right */}
                     {project.status === 'DRAFT' && (
                       <Button 
                         size="sm" 
                         variant="default"
                         onClick={() => handleSubmitProject(project)}
-                        className="bg-blue-600 hover:bg-blue-700"
+                        className="bg-green-600 hover:bg-green-700"
                       >
                         <CheckCircle className="h-4 w-4 mr-1" />
                         Submit
