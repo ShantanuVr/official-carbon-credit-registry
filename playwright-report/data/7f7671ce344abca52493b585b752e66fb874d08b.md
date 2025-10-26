@@ -1,0 +1,170 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e6]:
+            - img [ref=e7]
+            - heading "Official Carbon Credit Registry" [level=1] [ref=e10]
+          - generic [ref=e11]:
+            - link "Home" [ref=e12] [cursor=pointer]:
+              - /url: /
+              - button "Home" [ref=e13]:
+                - img [ref=e14]
+                - generic [ref=e17]: Home
+            - button "Filter" [ref=e18] [cursor=pointer]:
+              - img [ref=e19]
+              - generic [ref=e21]: Filter
+            - generic [ref=e22]:
+              - img [ref=e23]
+              - textbox "Search projects..." [ref=e26]
+        - generic [ref=e28]:
+          - img [ref=e29]
+          - generic [ref=e31]:
+            - generic [ref=e32]:
+              - img [ref=e33]
+              - generic [ref=e35]: "Official Registry • Demo Environment • Source of Record: CREDIT"
+            - paragraph [ref=e36]: 📜 Credit • Off-chain • Registry Authoritative
+    - generic [ref=e39]:
+      - heading "Project Explorer" [level=2] [ref=e40]
+      - paragraph [ref=e41]: Browse and explore carbon credit projects in the registry
+    - main [ref=e42]:
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - heading "Total Projects" [level=3] [ref=e48]
+          - generic [ref=e50]: "3"
+        - generic [ref=e51]:
+          - heading "Credits Issued" [level=3] [ref=e53]
+          - generic [ref=e54]:
+            - generic [ref=e55]: 30,000
+            - paragraph [ref=e56]: tCO₂e
+        - generic [ref=e57]:
+          - heading "Credits Retired" [level=3] [ref=e59]
+          - generic [ref=e60]:
+            - generic [ref=e61]: 5,000
+            - paragraph [ref=e62]: tCO₂e
+        - generic [ref=e63]:
+          - heading "Active Projects" [level=3] [ref=e65]
+          - generic [ref=e67]: "3"
+      - generic [ref=e69]:
+        - heading "Carbon Credit Projects (3)" [level=2] [ref=e70]
+        - generic [ref=e71]:
+          - generic [ref=e72]:
+            - generic [ref=e73]:
+              - generic [ref=e74]:
+                - heading "Wind Farm C - Offshore Wind Project" [level=3] [ref=e75]
+                - generic [ref=e76]: APPROVED
+              - paragraph [ref=e77]: A 100MW offshore wind farm in the North Sea generating clean electricity for European grid.
+            - generic [ref=e78]:
+              - generic [ref=e79]:
+                - img [ref=e80]
+                - generic [ref=e83]: North Sea, United Kingdom
+              - generic [ref=e84]:
+                - img [ref=e85]
+                - generic [ref=e88]: ACM0002 - Grid-connected renewable electricity generation
+              - generic [ref=e89]:
+                - generic [ref=e90]:
+                  - generic [ref=e91]: 30,000
+                  - generic [ref=e92]: Issued
+                - generic [ref=e93]:
+                  - generic [ref=e94]: 5,000
+                  - generic [ref=e95]: Retired
+              - generic [ref=e96]:
+                - generic [ref=e97]:
+                  - img [ref=e98]
+                  - generic [ref=e101]: Serial Ranges
+                - generic [ref=e104]:
+                  - generic [ref=e105]: 00000001-00030000
+                  - generic [ref=e106]: 25000 credits
+              - button "View Details" [ref=e107] [cursor=pointer]
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - generic [ref=e110]:
+                - heading "Solar Farm B - Community Solar Initiative" [level=3] [ref=e111]
+                - generic [ref=e112]: APPROVED
+              - paragraph [ref=e113]: A 25MW community solar project in Texas providing renewable energy to local residents and businesses.
+            - generic [ref=e114]:
+              - generic [ref=e115]:
+                - img [ref=e116]
+                - generic [ref=e119]: Texas, United States
+              - generic [ref=e120]:
+                - img [ref=e121]
+                - generic [ref=e124]: ACM0002 - Grid-connected renewable electricity generation
+              - generic [ref=e125]:
+                - generic [ref=e126]:
+                  - generic [ref=e127]: "0"
+                  - generic [ref=e128]: Issued
+                - generic [ref=e129]:
+                  - generic [ref=e130]: "0"
+                  - generic [ref=e131]: Retired
+              - button "View Details" [ref=e132] [cursor=pointer]
+          - generic [ref=e133]:
+            - generic [ref=e134]:
+              - generic [ref=e135]:
+                - heading "Solar Farm A - Renewable Energy Project" [level=3] [ref=e136]
+                - generic [ref=e137]: APPROVED
+              - paragraph [ref=e138]: A 50MW solar photovoltaic power plant located in California, USA. This project generates clean electricity and reduces CO2 emissions by displacing fossil fuel-based power generation.
+            - generic [ref=e139]:
+              - generic [ref=e140]:
+                - img [ref=e141]
+                - generic [ref=e144]: California, United States
+              - generic [ref=e145]:
+                - img [ref=e146]
+                - generic [ref=e149]: ACM0002 - Grid-connected renewable electricity generation
+              - generic [ref=e150]:
+                - generic [ref=e151]:
+                  - generic [ref=e152]: "0"
+                  - generic [ref=e153]: Issued
+                - generic [ref=e154]:
+                  - generic [ref=e155]: "0"
+                  - generic [ref=e156]: Retired
+              - button "View Details" [ref=e157] [cursor=pointer]
+    - contentinfo [ref=e158]:
+      - generic [ref=e159]:
+        - generic [ref=e160]:
+          - generic [ref=e161]:
+            - generic [ref=e162]:
+              - img [ref=e163]
+              - generic [ref=e166]: Carbon Registry
+            - paragraph [ref=e167]: Official Carbon Credit Registry Simulator for demonstration and educational purposes.
+          - generic [ref=e168]:
+            - heading "Platform" [level=4] [ref=e169]
+            - list [ref=e170]:
+              - listitem [ref=e171]:
+                - link "Home" [ref=e172] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e173]:
+                - link "Project Explorer" [ref=e174] [cursor=pointer]:
+                  - /url: /explorer
+              - listitem [ref=e175]:
+                - link "Login Portal" [ref=e176] [cursor=pointer]:
+                  - /url: /login
+              - listitem [ref=e177]:
+                - link "Documentation" [ref=e178] [cursor=pointer]:
+                  - /url: /docs
+          - generic [ref=e179]:
+            - heading "Roles" [level=4] [ref=e180]
+            - list [ref=e181]:
+              - listitem [ref=e182]: Project Developers
+              - listitem [ref=e183]: Verifiers
+              - listitem [ref=e184]: Administrators
+              - listitem [ref=e185]: Public Viewers
+          - generic [ref=e186]:
+            - heading "Demo Accounts" [level=4] [ref=e187]
+            - generic [ref=e188]:
+              - generic [ref=e189]: "Admin: admin@registry.test"
+              - generic [ref=e190]: "Verifier: verifier1@registry.test"
+              - generic [ref=e191]: "Issuer: solarco@registry.test"
+              - generic [ref=e192]: "Password: Admin@123"
+        - paragraph [ref=e194]: © 2024 Official Carbon Credit Registry Simulator. Demo/Education Platform.
+  - generic [ref=e195]:
+    - img [ref=e197]
+    - button "Open Tanstack query devtools" [ref=e245] [cursor=pointer]:
+      - img [ref=e246]
+  - button "Open Next.js Dev Tools" [ref=e299] [cursor=pointer]:
+    - img [ref=e300]
+  - alert [ref=e303]
+```

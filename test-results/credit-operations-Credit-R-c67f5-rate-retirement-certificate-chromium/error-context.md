@@ -1,0 +1,55 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e6]
+        - heading "Carbon Registry" [level=1] [ref=e9]
+      - heading "Login to Registry Portal" [level=3] [ref=e10]
+      - paragraph [ref=e11]: Access your carbon credit management dashboard
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - text: Email
+          - textbox "Email" [ref=e15]:
+            - /placeholder: Enter your email
+            - text: issuer@carbonregistry.test
+        - generic [ref=e16]:
+          - text: Password
+          - textbox "Password" [active] [ref=e17]:
+            - /placeholder: Enter your password
+            - text: password123
+        - button "Sign In" [ref=e18] [cursor=pointer]:
+          - generic [ref=e19]:
+            - img [ref=e20]
+            - generic [ref=e23]: Sign In
+      - generic [ref=e24]:
+        - heading "Quick Demo Login" [level=3] [ref=e25]
+        - generic [ref=e26]:
+          - generic [ref=e27] [cursor=pointer]:
+            - generic [ref=e28]: Admin
+            - generic [ref=e29]: admin@registry.test
+            - generic [ref=e30]: Click to fill
+          - generic [ref=e31] [cursor=pointer]:
+            - generic [ref=e32]: Verifier
+            - generic [ref=e33]: verifier1@registry.test
+            - generic [ref=e34]: Click to fill
+          - generic [ref=e35] [cursor=pointer]:
+            - generic [ref=e36]: Issuer
+            - generic [ref=e37]: solarco@registry.test
+            - generic [ref=e38]: Click to fill
+      - generic [ref=e39]:
+        - paragraph [ref=e40]: This is a demo platform. Click on demo accounts above to auto-fill credentials.
+        - link "Back to Home" [ref=e41] [cursor=pointer]:
+          - /url: /
+          - button "Back to Home" [ref=e42]
+  - generic [ref=e43]:
+    - img [ref=e45]
+    - button "Open Tanstack query devtools" [ref=e93] [cursor=pointer]:
+      - img [ref=e94]
+  - button "Open Next.js Dev Tools" [ref=e147] [cursor=pointer]:
+    - img [ref=e148]
+  - alert [ref=e151]
+```

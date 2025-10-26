@@ -1,0 +1,94 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e6]:
+            - img [ref=e7]
+            - heading "Official Carbon Credit Registry" [level=1] [ref=e10]
+          - generic [ref=e11]:
+            - link "Home" [ref=e12] [cursor=pointer]:
+              - /url: /
+              - button "Home" [ref=e13]:
+                - img [ref=e14]
+                - generic [ref=e17]: Home
+            - button "Filter" [ref=e18] [cursor=pointer]:
+              - img [ref=e19]
+              - generic [ref=e21]: Filter
+            - generic [ref=e22]:
+              - img [ref=e23]
+              - textbox "Search projects..." [ref=e26]
+        - generic [ref=e28]:
+          - img [ref=e29]
+          - generic [ref=e31]:
+            - generic [ref=e32]:
+              - img [ref=e33]
+              - generic [ref=e35]: "Official Registry • Demo Environment • Source of Record: CREDIT"
+            - paragraph [ref=e36]: 📜 Credit • Off-chain • Registry Authoritative
+    - generic [ref=e39]:
+      - heading "Project Explorer" [level=2] [ref=e40]
+      - paragraph [ref=e41]: Browse and explore carbon credit projects in the registry
+    - main [ref=e42]:
+      - generic [ref=e45]:
+        - generic [ref=e46]:
+          - heading "Total Projects" [level=3] [ref=e48]
+          - generic [ref=e50]: "0"
+        - generic [ref=e51]:
+          - heading "Credits Issued" [level=3] [ref=e53]
+          - generic [ref=e54]:
+            - generic [ref=e55]: "0"
+            - paragraph [ref=e56]: tCO₂e
+        - generic [ref=e57]:
+          - heading "Credits Retired" [level=3] [ref=e59]
+          - generic [ref=e60]:
+            - generic [ref=e61]: "0"
+            - paragraph [ref=e62]: tCO₂e
+        - generic [ref=e63]:
+          - heading "Active Projects" [level=3] [ref=e65]
+          - generic [ref=e67]: "0"
+      - generic [ref=e69]:
+        - heading "Carbon Credit Projects (0)" [level=2] [ref=e70]
+        - generic [ref=e72]: Loading projects...
+    - contentinfo [ref=e73]:
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - generic [ref=e76]:
+            - generic [ref=e77]:
+              - img [ref=e78]
+              - generic [ref=e81]: Carbon Registry
+            - paragraph [ref=e82]: Official Carbon Credit Registry Simulator for demonstration and educational purposes.
+          - generic [ref=e83]:
+            - heading "Platform" [level=4] [ref=e84]
+            - list [ref=e85]:
+              - listitem [ref=e86]:
+                - link "Home" [ref=e87] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e88]:
+                - link "Project Explorer" [ref=e89] [cursor=pointer]:
+                  - /url: /explorer
+              - listitem [ref=e90]:
+                - link "Login Portal" [ref=e91] [cursor=pointer]:
+                  - /url: /login
+              - listitem [ref=e92]:
+                - link "Documentation" [ref=e93] [cursor=pointer]:
+                  - /url: /docs
+          - generic [ref=e94]:
+            - heading "Roles" [level=4] [ref=e95]
+            - list [ref=e96]:
+              - listitem [ref=e97]: Project Developers
+              - listitem [ref=e98]: Verifiers
+              - listitem [ref=e99]: Administrators
+              - listitem [ref=e100]: Public Viewers
+          - generic [ref=e101]:
+            - heading "Demo Accounts" [level=4] [ref=e102]
+            - generic [ref=e103]:
+              - generic [ref=e104]: "Admin: admin@registry.test"
+              - generic [ref=e105]: "Verifier: verifier1@registry.test"
+              - generic [ref=e106]: "Issuer: solarco@registry.test"
+              - generic [ref=e107]: "Password: Admin@123"
+        - paragraph [ref=e109]: © 2024 Official Carbon Credit Registry Simulator. Demo/Education Platform.
+  - alert [ref=e110]
+```
