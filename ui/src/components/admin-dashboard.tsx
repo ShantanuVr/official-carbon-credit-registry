@@ -54,6 +54,11 @@ interface IssuanceRequest {
       name: string
     }
   }
+  creditBatch?: {
+    serialStart: number
+    serialEnd: number
+    classId: string
+  }
 }
 
 export function AdminDashboard() {
@@ -259,6 +264,7 @@ export function AdminDashboard() {
   })
 
   const pendingIssuances = issuanceRequests.filter(req => req.status === 'UNDER_REVIEW')
+  const finalizedIssuances = issuanceRequests.filter(req => req.status === 'FINALIZED')
   const pendingProjectReviews = projects.filter(p => p.status === 'UNDER_REVIEW')
 
   if (loading) {
@@ -305,7 +311,7 @@ export function AdminDashboard() {
       )}
       
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
@@ -341,6 +347,19 @@ export function AdminDashboard() {
             <div className="text-2xl font-bold">{pendingIssuances.length}</div>
             <p className="text-xs text-muted-foreground">
               Issuance requests awaiting approval
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Finalized Issuances</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{finalizedIssuances.length}</div>
+            <p className="text-xs text-muted-foreground">
+              Credentials issued
             </p>
           </CardContent>
         </Card>
@@ -485,6 +504,54 @@ export function AdminDashboard() {
                         Reject
                       </Button>
                     </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Finalized Issuances */}
+      {finalizedIssuances.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <CheckCircle className="h-5 w-5" />
+              <span>Finalized Issuances</span>
+            </CardTitle>
+            <CardDescription>
+              Successfully approved issuances with serial numbers and certificates
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {finalizedIssuances.map((request) => (
+                <div key={request.id} className="border rounded-lg p-4 bg-green-50">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2">
+                      <h4 className="font-semibold">{request.project.title}</h4>
+                      <p className="text-sm text-gray-600">
+                        Organization: {request.project.organization.name}
+                      </p>
+                      <p className="text-sm text-green-700 font-semibold">
+                        Credits Issued: {(request.quantity || 0).toLocaleString()} tCO₂e
+                      </p>
+                      {request.creditBatch && (
+                        <p className="text-sm text-gray-600">
+                          Serial Numbers: {request.creditBatch.serialStart?.toLocaleString()} - {request.creditBatch.serialEnd?.toLocaleString()}
+                        </p>
+                      )}
+                      <p className="text-sm text-gray-600">
+                        Class ID: {request.creditBatch?.classId}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Finalized: {new Date(request.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="default" className="bg-green-600">
+                      Finalized
+                    </Badge>
                   </div>
                 </div>
               ))}

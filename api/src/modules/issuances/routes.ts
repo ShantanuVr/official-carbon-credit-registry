@@ -391,7 +391,7 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
     return updatedIssuance
   })
 
-  // Approve issuance
+  // Approve issuance - automatically finalizes and creates credits
   fastify.post('/:id/approve', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.VERIFIER])],
   }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -400,6 +400,9 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
 
     const issuance = await prisma.issuanceRequest.findUnique({
       where: { id: params.id },
+      include: {
+        project: true,
+      },
     })
 
     if (!issuance) {
@@ -410,16 +413,69 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
       throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Issuance must be under review to approve', 400)
     }
 
-    const updatedIssuance = await prisma.issuanceRequest.update({
-      where: { id: params.id },
-      data: { status: IssuanceStatus.APPROVED },
-      include: {
-        project: {
-          include: {
-            organization: true,
-          },
+    // Mock adapter call (in real implementation, this would call the registry adapter)
+    const adapterResponse = {
+      adapterTxId: `tx_${Date.now()}`,
+      onchainHash: `0x${Math.random().toString(16).substr(2, 64)}`,
+    }
+
+    // Perform approval and finalization in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Get the next global serial number for this batch
+      const startSerial = await serialAllocator.getNextGlobalSerialNumber(issuance.quantity)
+      
+      // Create credit batch with global serial range
+      const creditBatch = await tx.creditBatch.create({
+        data: {
+          projectId: issuance.projectId,
+          issuanceId: issuance.id,
+          vintageStart: issuance.vintageStart,
+          vintageEnd: issuance.vintageEnd,
+          totalIssued: issuance.quantity,
+          classId: `class_${issuance.projectId}_${issuance.vintageStart}_${issuance.vintageEnd}`,
+          serialStart: startSerial,
+          serialEnd: startSerial + issuance.quantity - 1,
         },
-      },
+      })
+
+      // Create initial holding for the project organization
+      await tx.creditHolding.create({
+        data: {
+          orgId: issuance.project.orgId,
+          batchId: creditBatch.id,
+          quantity: issuance.quantity,
+        },
+      })
+
+      // Create initial serial range for the issuer using the same global serial numbers
+      await tx.serialRange.create({
+        data: {
+          batchId: creditBatch.id,
+          ownerOrgId: issuance.project.orgId,
+          startSerial: startSerial,
+          endSerial: startSerial + issuance.quantity - 1,
+        },
+      })
+
+      // Update issuance to FINALIZED with adapter response
+      const updatedIssuance = await tx.issuanceRequest.update({
+        where: { id: params.id },
+        data: {
+          status: IssuanceStatus.FINALIZED,
+          adapterTxId: adapterResponse.adapterTxId,
+          onchainHash: adapterResponse.onchainHash,
+        },
+        include: {
+          project: {
+            include: {
+              organization: true,
+            },
+          },
+          creditBatch: true,
+        },
+      })
+
+      return { updatedIssuance, creditBatch }
     })
 
     // Audit log
@@ -428,14 +484,14 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
         actorUserId: authRequest.user.id,
         actorRole: authRequest.user.role,
         entityType: 'IssuanceRequest',
-        entityId: updatedIssuance.id,
+        entityId: result.updatedIssuance.id,
         action: 'APPROVE',
         beforeJson: issuance,
-        afterJson: updatedIssuance,
+        afterJson: result.updatedIssuance,
       },
     })
 
-    return updatedIssuance
+    return result.updatedIssuance
   })
 
   // Finalize issuance (Admin only) - creates credit batch and serial ranges
