@@ -229,6 +229,16 @@ async function registerRoutes() {
 fastify.setErrorHandler((error, request, reply) => {
   const traceId = request.id
   
+  // Log full error details
+  console.error('Error occurred:', {
+    message: error.message,
+    stack: error.stack,
+    traceId,
+    url: request.url,
+    method: request.method,
+    body: request.body,
+  })
+  
   fastify.log.error({
     error: error.message,
     stack: error.stack,
@@ -252,7 +262,7 @@ fastify.setErrorHandler((error, request, reply) => {
   reply.code(500).send({
     error: {
       code: 'INTERNAL_ERROR',
-      message: 'An internal error occurred',
+      message: error.message || 'An internal error occurred',
       traceId,
     },
   })
