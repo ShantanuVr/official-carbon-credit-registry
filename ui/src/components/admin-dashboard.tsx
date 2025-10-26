@@ -132,9 +132,13 @@ export function AdminDashboard() {
     }
   }
 
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [showRejectionModal, setShowRejectionModal] = useState(false)
+  const [issuanceToReject, setIssuanceToReject] = useState<string | null>(null)
+
   const handleApproveIssuance = async (issuanceId: string) => {
     try {
-      await apiClient.post(`/issuances/${issuanceId}/approve`)
+      await apiClient.post(`/issuances/${issuanceId}/approve`, {})
 
       // Refresh data
       const issuancesData = await apiClient.get('/issuances')
@@ -146,16 +150,31 @@ export function AdminDashboard() {
     }
   }
 
-  const handleRejectIssuance = async (issuanceId: string) => {
+  const handleRejectIssuance = (issuanceId: string) => {
+    setIssuanceToReject(issuanceId)
+    setShowRejectionModal(true)
+  }
+
+  const confirmRejectIssuance = async () => {
+    if (!issuanceToReject || !rejectionReason.trim()) {
+      showNotification('error', 'Please provide a rejection reason.')
+      return
+    }
+
     try {
-      await apiClient.post(`/issuances/${issuanceId}/request-changes`, {
-        message: 'Issuance rejected by admin'
+      await apiClient.post(`/issuances/${issuanceToReject}/reject`, {
+        reason: rejectionReason
       })
 
       // Refresh data
       const issuancesData = await apiClient.get('/issuances')
       setIssuanceRequests(issuancesData.issuances || issuancesData)
       showNotification('success', 'Issuance rejected successfully!')
+      
+      // Close modal and reset
+      setShowRejectionModal(false)
+      setIssuanceToReject(null)
+      setRejectionReason('')
     } catch (error) {
       console.error('Failed to reject issuance:', error)
       showNotification('error', 'Failed to reject issuance. Please try again.')
@@ -565,6 +584,54 @@ export function AdminDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Rejection Reason Modal */}
+      {showRejectionModal && issuanceToReject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Reject Issuance Request</CardTitle>
+              <CardDescription>
+                Please provide a reason for rejecting this issuance
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="rejectionReason">Rejection Reason</Label>
+                  <Textarea
+                    id="rejectionReason"
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Enter the reason for rejection..."
+                    rows={4}
+                    required
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setShowRejectionModal(false)
+                      setIssuanceToReject(null)
+                      setRejectionReason('')
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={confirmRejectIssuance}
+                    disabled={!rejectionReason.trim()}
+                    variant="destructive"
+                  >
+                    Reject Issuance
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Edit Project Modal */}
       {showEditModal && selectedProject && (
