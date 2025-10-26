@@ -35,6 +35,12 @@ export async function retirementRoutes(fastify: FastifyInstance) {
     try {
       const authRequest = request as AuthenticatedRequest
       const data = request.body as z.infer<typeof createRetirementSchema>
+      
+      console.log('Retirement request received:', { 
+        batchId: data.batchId, 
+        quantity: data.quantity, 
+        reason: data.reason 
+      })
 
       // Get batch details
       const batch = await prisma.creditBatch.findUnique({
