@@ -54,6 +54,8 @@ interface IssuanceRequest {
   vintageStart: number
   vintageEnd: number
   factorRef: string
+  rejectionReason?: string
+  rejectedAt?: string
   createdAt: string
   project: {
     title: string
@@ -705,6 +707,22 @@ export function IssuerDashboard() {
                           {request.quantity?.toLocaleString() || 0} tCO₂e
                         </span>
                     </div>
+                    {request.status === 'REJECTED' && request.rejectionReason && (
+                      <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                        <div className="flex items-start">
+                          <XCircle className="h-4 w-4 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-red-800 mb-1">Rejection Reason:</p>
+                            <p className="text-sm text-red-700">{request.rejectionReason}</p>
+                            {request.rejectedAt && (
+                              <p className="text-xs text-red-600 mt-1">
+                                Rejected on: {new Date(request.rejectedAt).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <p className="text-xs text-gray-500">
                       Submitted: {new Date(request.createdAt).toLocaleDateString()}
                     </p>
