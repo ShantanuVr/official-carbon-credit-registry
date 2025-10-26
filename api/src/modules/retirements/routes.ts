@@ -81,9 +81,9 @@ export async function retirementRoutes(fastify: FastifyInstance) {
           quantity: data.quantity,
           serialStart: retirementStartSerial,
           serialEnd: retirementEndSerial,
-          reason: data.reason,
+          reason: data.reason || '',
           purpose: data.purpose || data.reason || 'Voluntary offset', // Use reason as purpose if not provided
-          beneficiary: data.beneficiary || null,
+          beneficiary: data.beneficiary,
         },
       })
 
