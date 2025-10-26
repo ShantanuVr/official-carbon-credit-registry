@@ -79,34 +79,31 @@ async function registerRoutes() {
 
   // Public stats endpoint
   fastify.get('/public/stats', async (request, reply) => {
-    try {
-      const projects = await prisma.project.findMany({
-        include: {
-          creditBatches: true
-        }
-      })
-
-      const totalProjects = projects.length
-      const totalCreditsIssued = projects.reduce((sum, project) => 
-        sum + project.creditBatches.reduce((batchSum, batch) => batchSum + batch.totalIssued, 0), 0
-      )
-      const totalCreditsRetired = projects.reduce((sum, project) => 
-        sum + project.creditBatches.reduce((batchSum, batch) => batchSum + batch.totalRetired, 0), 0
-      )
-      const activeProjects = projects.filter(project => 
-        project.status === 'APPROVED'
-      ).length
-
-      return {
-        authority: "credit",
-        totalProjects,
-        totalCreditsIssued,
-        totalCreditsRetired,
-        activeProjects
+    // Only count approved projects for public stats to match explorer
+    const projects = await prisma.project.findMany({
+      where: {
+        status: 'APPROVED'
+      },
+      include: {
+        creditBatches: true
       }
-    } catch (error) {
-      reply.code(500)
-      return { error: 'Failed to fetch stats' }
+    })
+
+    const totalProjects = projects.length
+    const totalCreditsIssued = projects.reduce((sum, project) => 
+      sum + project.creditBatches.reduce((batchSum, batch) => batchSum + batch.totalIssued, 0), 0
+    )
+    const totalCreditsRetired = projects.reduce((sum, project) => 
+      sum + project.creditBatches.reduce((batchSum, batch) => batchSum + batch.totalRetired, 0), 0
+    )
+    const activeProjects = projects.length // All returned projects are active
+
+    return {
+      authority: "credit",
+      totalProjects,
+      totalCreditsIssued,
+      totalCreditsRetired,
+      activeProjects
     }
   })
 
