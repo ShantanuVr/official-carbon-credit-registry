@@ -1,27 +1,74 @@
 #!/bin/bash
 # Fresh EC2 Deployment for Official Carbon Credit Registry
-# This script completely sets up a fresh EC2 instance
+# This script completely sets up a fresh EC2 instance (Amazon Linux or Ubuntu)
 
 set -e
 
 echo "🚀 Official Carbon Credit Registry - Fresh EC2 Deployment"
 echo "=========================================================="
 
-# Update system
+# Detect OS
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS=$ID
+else
+    echo "❌ Cannot detect OS"
+    exit 1
+fi
+
+echo "📌 Detected OS: $OS"
+
+# Update system packages
 echo "📦 Updating system packages..."
-sudo yum update -y
+if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
+    sudo apt-get update -y
+    sudo apt-get upgrade -y
+elif [ "$OS" = "amzn" ] || [ "$OS" = "rhel" ]; then
+    sudo yum update -y
+else
+    echo "❌ Unsupported OS: $OS"
+    exit 1
+fi
 
 # Install Docker
 echo "📦 Installing Docker..."
-sudo yum install -y docker
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo usermod -a -G docker ec2-user
-sudo newgrp docker
+if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
+    # Install prerequisites
+    sudo apt-get install -y ca-certificates curl gnupg lsb-release
+    
+    # Add Docker GPG key
+    sudo install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+    
+    # Add Docker repository
+    echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+      $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    
+    # Install Docker
+    sudo apt-get update -y
+    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    
+    # Start and enable Docker
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    
+    # Add ubuntu user to docker group
+    sudo usermod -aG docker ubuntu
+    
+else
+    # Amazon Linux
+    sudo yum install -y docker
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    sudo usermod -a -G docker ec2-user
+fi
 
-# Install Docker Compose (V1)
+# Install Docker Compose (V1 - standalone)
 echo "📦 Installing Docker Compose..."
-sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+DOCKER_COMPOSE_VERSION="2.20.0"
+sudo curl -L "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 
 # Verify Docker Compose installation
@@ -34,11 +81,24 @@ echo "✅ Docker Compose version: $(docker-compose --version)"
 
 # Install Git
 echo "📦 Installing Git..."
-sudo yum install -y git
+if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
+    sudo apt-get install -y git
+else
+    sudo yum install -y git
+fi
+
+# Determine user and home directory
+if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
+    USER_HOME="/home/ubuntu"
+    USER_NAME="ubuntu"
+else
+    USER_HOME="/home/ec2-user"
+    USER_NAME="ec2-user"
+fi
 
 # Clone repository
 echo "📥 Cloning repository..."
-cd /home/ec2-user
+cd "$USER_HOME"
 if [ -d "official-carbon-credit-registry" ]; then
     echo "⚠️  Repository exists, updating..."
     cd official-carbon-credit-registry
@@ -100,7 +160,7 @@ echo "📊 Final Status:"
 docker-compose ps
 
 # Get public IP
-PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "unknown")
 
 echo ""
 echo "🌐 Access your application:"
