@@ -31,7 +31,8 @@ export default function HomePage() {
     const fetchStats = async () => {
       try {
         // Use the public stats endpoint that doesn't require authentication
-        const stats = await fetch('http://localhost:4000/public/stats').then(res => res.json())
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+        const stats = await fetch(`${apiUrl}/public/stats`).then(res => res.json())
         
         setStats({
           totalProjects: stats.totalProjects,

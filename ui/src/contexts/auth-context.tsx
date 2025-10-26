@@ -34,7 +34,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const refreshTokenValue = localStorage.getItem('refreshToken')
       if (!refreshTokenValue) return false
 
-      const response = await fetch('http://localhost:4000/auth/refresh', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+      const response = await fetch(`${apiUrl}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

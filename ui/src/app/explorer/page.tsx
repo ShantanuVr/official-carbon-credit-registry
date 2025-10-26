@@ -65,7 +65,8 @@ export default function ExplorerPage() {
           setFilteredProjects(data.projects || data)
         } else {
           // Fetch only approved projects for public access
-          const response = await fetch('http://localhost:4000/public/projects')
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+          const response = await fetch(`${apiUrl}/public/projects`)
           const data = await response.json()
           setProjects(data.projects || [])
           setFilteredProjects(data.projects || [])
