@@ -325,18 +325,9 @@ export async function issuanceRoutes(fastify: FastifyInstance) {
   // Approve issuance
   fastify.post('/:id/approve', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.VERIFIER])],
-    schema: {
-      body: {
-        type: 'object',
-        properties: {
-          message: { type: 'string' },
-        },
-      },
-    },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
     const params = request.params as { id: string }
-    const data = request.body as z.infer<typeof approveIssuanceSchema>
 
     const issuance = await prisma.issuanceRequest.findUnique({
       where: { id: params.id },

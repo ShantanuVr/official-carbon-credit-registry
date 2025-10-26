@@ -105,7 +105,7 @@ export function VerifierDashboard() {
 
     try {
       if (decision === 'APPROVE') {
-        await apiClient.post(`/projects/${selectedProject.id}/approve`)
+        await apiClient.post(`/projects/${selectedProject.id}/approve`, {})
       } else {
         await apiClient.post(`/projects/${selectedProject.id}/request-changes`, {
           message: reviewComment || 'Project rejected by verifier'

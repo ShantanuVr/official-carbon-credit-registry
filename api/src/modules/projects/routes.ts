@@ -377,18 +377,9 @@ export async function projectRoutes(fastify: FastifyInstance) {
   // Approve project
   fastify.post('/:id/approve', {
     preHandler: [authenticate, requireRole([Role.ADMIN, Role.VERIFIER])],
-    schema: {
-      body: {
-        type: 'object',
-        properties: {
-          message: { type: 'string' },
-        },
-      },
-    },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const authRequest = request as AuthenticatedRequest
     const params = request.params as { id: string }
-    const data = request.body as z.infer<typeof approveProjectSchema>
 
     const project = await prisma.project.findUnique({
       where: { id: params.id },
