@@ -12,8 +12,17 @@ if [ -f /etc/os-release ]; then
     . /etc/os-release
     OS=$ID
 else
-    echo "❌ Cannot detect OS"
-    exit 1
+    # Fallback detection
+    if [ -f /etc/lsb-release ]; then
+        OS="ubuntu"
+    elif command -v apt-get &> /dev/null; then
+        OS="debian"
+    elif command -v yum &> /dev/null; then
+        OS="amzn"
+    else
+        echo "❌ Cannot detect OS"
+        exit 1
+    fi
 fi
 
 echo "📌 Detected OS: $OS"
@@ -23,11 +32,18 @@ echo "📦 Updating system packages..."
 if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
     sudo apt-get update -y
     sudo apt-get upgrade -y
-elif [ "$OS" = "amzn" ] || [ "$OS" = "rhel" ]; then
+elif [ "$OS" = "amzn" ] || [ "$OS" = "rhel" ] || [ "$OS" = "centos" ]; then
     sudo yum update -y
 else
-    echo "❌ Unsupported OS: $OS"
-    exit 1
+    echo "⚠️  Unknown OS, trying apt-get..."
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update -y
+        sudo apt-get upgrade -y
+        OS="debian"
+    else
+        echo "❌ Unsupported OS: $OS"
+        exit 1
+    fi
 fi
 
 # Install Docker
