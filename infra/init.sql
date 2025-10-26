@@ -1,1 +1,1 @@
--- PostgreSQL init script
+-- PostgreSQL Extension
