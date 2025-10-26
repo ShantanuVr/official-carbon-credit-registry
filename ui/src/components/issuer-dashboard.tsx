@@ -117,9 +117,9 @@ export function IssuerDashboard() {
     try {
       const projectData = await apiClient.get(`/projects/${projectId}`) as Project
       
-      // Check if project can be edited (only DRAFT projects)
-      if (projectData.status !== 'DRAFT') {
-        showNotification('error', 'Only draft projects can be edited.')
+      // Check if project can be edited (only DRAFT or NEEDS_CHANGES projects)
+      if (projectData.status !== 'DRAFT' && projectData.status !== 'NEEDS_CHANGES') {
+        showNotification('error', 'Only draft or needs changes projects can be edited.')
         return
       }
       
