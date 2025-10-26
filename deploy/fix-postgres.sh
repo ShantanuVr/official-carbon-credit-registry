@@ -3,6 +3,19 @@
 
 echo "🔧 Fixing PostgreSQL container issues..."
 
+# Navigate to project directory
+PROJECT_DIR="/home/ec2-user/official-carbon-credit-registry"
+if [ ! -d "$PROJECT_DIR" ]; then
+    echo "❌ Project directory not found at $PROJECT_DIR"
+    echo "Please clone the repository first:"
+    echo "  cd /home/ec2-user"
+    echo "  git clone https://github.com/ShantanuVr/official-carbon-credit-registry.git"
+    exit 1
+fi
+
+cd "$PROJECT_DIR" || exit 1
+echo "📂 Working directory: $(pwd)"
+
 # Stop any running containers
 echo "🛑 Stopping existing containers..."
 docker-compose down 2>/dev/null || docker compose down 2>/dev/null || true
