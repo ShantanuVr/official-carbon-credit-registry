@@ -614,36 +614,40 @@ export function IssuerDashboard() {
                       </div>
                     )}
                   </div>
-                  <div className="flex-shrink-0 flex flex-col items-end space-y-2">
-                    <div className="flex space-x-2">
-                      <ProjectDetailsModal project={project}>
-                        <Button size="sm" variant="outline">
-                          View Details
-                        </Button>
-                      </ProjectDetailsModal>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleEditProject(project.id)}
-                        disabled={project.status === 'APPROVED' || project.status === 'UNDER_REVIEW'}
-                        title={project.status === 'APPROVED' || project.status === 'UNDER_REVIEW' ? 'Cannot edit approved or under review projects' : 'Edit project'}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
+                </div>
+                {/* Action buttons at bottom of card */}
+                <div className="mt-4 pt-4 border-t flex items-center justify-between">
+                  <div className="flex space-x-2">
+                    <ProjectDetailsModal project={project}>
+                      <Button size="sm" variant="outline">
+                        <FileText className="h-4 w-4 mr-1" />
+                        View Details
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleDeleteProject(project)}
-                        disabled={project.status !== 'DRAFT'}
-                        title={project.status !== 'DRAFT' ? 'Only draft projects can be deleted' : 'Delete project'}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Delete
-                      </Button>
-                    </div>
-                    {/* Action buttons at bottom right */}
+                    </ProjectDetailsModal>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => handleEditProject(project.id)}
+                      disabled={project.status === 'APPROVED' || project.status === 'UNDER_REVIEW'}
+                      title={project.status === 'APPROVED' || project.status === 'UNDER_REVIEW' ? 'Cannot edit approved or under review projects' : 'Edit project'}
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => handleDeleteProject(project)}
+                      disabled={project.status !== 'DRAFT'}
+                      title={project.status !== 'DRAFT' ? 'Only draft projects can be deleted' : 'Delete project'}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
+                  </div>
+                  {/* Primary action button on the right */}
+                  <div>
                     {project.status === 'DRAFT' && (
                       <Button 
                         size="sm" 
@@ -667,6 +671,7 @@ export function IssuerDashboard() {
                       </Button>
                     )}
                   </div>
+                </div>
                 </div>
               </div>
             ))}
