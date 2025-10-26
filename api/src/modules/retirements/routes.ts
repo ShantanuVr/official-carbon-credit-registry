@@ -4,8 +4,119 @@ import { prisma } from '../../index'
 import { AppError, ErrorCodes } from '../../lib/errors'
 import { authenticate, AuthenticatedRequest } from '../../lib/auth'
 import puppeteer from 'puppeteer'
+import { Role } from '@prisma/client'
+
+const createRetirementSchema = z.object({
+  batchId: z.string(),
+  quantity: z.number().positive(),
+  reason: z.string().min(1),
+  purpose: z.string().optional(),
+  beneficiary: z.string().optional(),
+})
 
 export async function retirementRoutes(fastify: FastifyInstance) {
+  // Create retirement
+  fastify.post('/', {
+    preHandler: [authenticate],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['batchId', 'quantity', 'reason'],
+        properties: {
+          batchId: { type: 'string' },
+          quantity: { type: 'number', minimum: 1 },
+          reason: { type: 'string' },
+          purpose: { type: 'string' },
+          beneficiary: { type: 'string' },
+        },
+      },
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const authRequest = request as AuthenticatedRequest
+    const data = request.body as z.infer<typeof createRetirementSchema>
+
+    // Get batch details
+    const batch = await prisma.creditBatch.findUnique({
+      where: { id: data.batchId },
+      include: {
+        project: {
+          include: {
+            organization: true,
+          },
+        },
+      },
+    })
+
+    if (!batch) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Credit batch not found', 404)
+    }
+
+    // Check if user has permission (must be from same organization)
+    if (authRequest.user.role !== Role.ADMIN && 
+        authRequest.user.orgId !== batch.project.orgId) {
+      throw new AppError(ErrorCodes.FORBIDDEN, 'You do not have permission to retire these credits', 403)
+    }
+
+    // Check available quantity
+    const available = batch.totalIssued - batch.totalRetired
+    if (data.quantity > available) {
+      throw new AppError(ErrorCodes.INVALID_INPUT, `Only ${available} credits available`, 400)
+    }
+
+    // Generate certificate ID
+    const certificateId = `cert_${batch.id}_${Date.now()}`
+
+    // Determine serial range for retirement
+    const retirementStartSerial = batch.serialStart + batch.totalRetired
+    const retirementEndSerial = retirementStartSerial + data.quantity - 1
+
+    // Create retirement in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create retirement record
+      const retirement = await tx.retirement.create({
+        data: {
+          certificateId,
+          orgId: batch.project.orgId,
+          batchId: batch.id,
+          quantity: data.quantity,
+          serialStart: retirementStartSerial,
+          serialEnd: retirementEndSerial,
+          reason: data.reason,
+          purpose: data.purpose || 'Voluntary offset',
+          beneficiary: data.beneficiary,
+        },
+      })
+
+      // Update batch total retired
+      await tx.creditBatch.update({
+        where: { id: batch.id },
+        data: {
+          totalRetired: batch.totalRetired + data.quantity,
+        },
+      })
+
+      return retirement
+    })
+
+    // Audit log
+    await prisma.auditEvent.create({
+      data: {
+        actorUserId: authRequest.user.id,
+        actorRole: authRequest.user.role,
+        entityType: 'Retirement',
+        entityId: result.id,
+        action: 'CREATE',
+        afterJson: result,
+      },
+    })
+
+    reply.code(201)
+    return {
+      ...result,
+      certificateUrl: `/retirements/${result.certificateId}`,
+    }
+  })
+
   // Get retirement certificate
   fastify.get('/:certificateId', async (request: FastifyRequest, reply: FastifyReply) => {
     const params = request.params as { certificateId: string }
