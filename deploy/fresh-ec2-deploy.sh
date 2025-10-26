@@ -153,7 +153,18 @@ EOF
 
 # Start Docker services
 echo "🐳 Starting Docker containers..."
+
+# Check if user needs to be added to docker group
+if ! groups | grep -q docker; then
+    echo "⚠️  User not in docker group. Adding and refreshing..."
+    sudo usermod -aG docker "$USER_NAME"
+    # Apply new group membership without requiring logout
+    newgrp docker <<EOF
 docker-compose up -d
+EOF
+else
+    docker-compose up -d
+fi
 
 # Wait for services to be ready
 echo "⏳ Waiting for services to start (45 seconds)..."
@@ -165,8 +176,23 @@ docker-compose ps
 
 # Run database migrations
 echo "🗄️  Running database migrations and seeding..."
-docker-compose exec -T api sh -c "npm install -g pnpm && pnpm db:generate" || true
-docker-compose exec -T api sh -c "npm install -g pnpm && pnpm db:fresh" || true
+
+# Check if we're in docker group
+if groups | grep -q docker; then
+    docker-compose exec -T api sh -c "npm install -g pnpm && pnpm db:generate" || true
+    docker-compose exec -T api sh -c "npm install -g pnpm && pnpm db:fresh" || true
+    
+    # Check container status
+    echo "📊 Checking container status..."
+    docker-compose ps
+else
+    echo "⚠️  Running with sudo due to permissions..."
+    sudo docker-compose exec -T api sh -c "npm install -g pnpm && pnpm db:generate" || true
+    sudo docker-compose exec -T api sh -c "npm install -g pnpm && pnpm db:fresh" || true
+    
+    echo "📊 Checking container status..."
+    sudo docker-compose ps
+fi
 
 # Final status
 echo ""
