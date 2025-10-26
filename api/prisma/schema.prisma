@@ -209,6 +209,7 @@ model Retirement {
   batchId       String
   quantity      Int
   purpose       String
+  reason        String
   beneficiary   String?
   certificateId String   @unique
   serialStart   Int      // inclusive
