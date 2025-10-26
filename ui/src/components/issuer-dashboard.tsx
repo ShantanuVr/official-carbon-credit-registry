@@ -1151,12 +1151,27 @@ export function IssuerDashboard() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="editFactorRef">Factor Reference</Label>
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Label htmlFor="editFactorRef">Factor Reference</Label>
+                    <div className="group relative inline-block">
+                      <Info className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-help" />
+                      <div className="absolute left-1/2 transform -translate-x-1/2 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-2 px-3 whitespace-normal w-64 z-50">
+                        <div className="font-semibold mb-1">Emission Factor Reference</div>
+                        <div className="text-gray-200">
+                          A unique identifier for the conversion/emission factor used to calculate credits. This documents which methodology or rate was applied.
+                        </div>
+                        <div className="mt-2 text-gray-300">
+                          <span className="font-semibold">Example:</span> factor_renewable_2024_v2.1
+                        </div>
+                        <div className="absolute left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                      </div>
+                    </div>
+                  </div>
                   <Input
                     id="editFactorRef"
                     value={editIssuanceData.factorRef}
                     onChange={(e) => setEditIssuanceData({...editIssuanceData, factorRef: e.target.value})}
-                    placeholder="REF-001"
+                    placeholder="factor_renewable_2024_v2.1"
                     required
                   />
                 </div>
