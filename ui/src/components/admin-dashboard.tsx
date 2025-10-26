@@ -104,6 +104,34 @@ export function AdminDashboard() {
     fetchData()
   }, [isAuthenticated])
 
+  const handleApproveProject = async (projectId: string) => {
+    try {
+      await apiClient.post(`/projects/${projectId}/approve`, {})
+      showNotification('success', 'Project approved successfully!')
+      // Refresh data
+      const projectsData = await apiClient.get('/projects')
+      setProjects(projectsData.projects || projectsData)
+    } catch (error) {
+      console.error('Failed to approve project:', error)
+      showNotification('error', 'Failed to approve project. Please try again.')
+    }
+  }
+
+  const handleRequestChanges = async (projectId: string) => {
+    try {
+      const response = await apiClient.post(`/projects/${projectId}/request-changes`, {
+        message: 'Please review and provide feedback on required changes.'
+      })
+      showNotification('success', 'Changes requested successfully!')
+      // Refresh data
+      const projectsData = await apiClient.get('/projects')
+      setProjects(projectsData.projects || projectsData)
+    } catch (error) {
+      console.error('Failed to request changes:', error)
+      showNotification('error', 'Failed to request changes. Please try again.')
+    }
+  }
+
   const handleApproveIssuance = async (issuanceId: string) => {
     try {
       await apiClient.post(`/issuances/${issuanceId}/approve`)
@@ -329,6 +357,66 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Projects Under Review - Admin Verification Section */}
+      {pendingProjectReviews.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <FileText className="h-5 w-5" />
+              <span>Projects Under Review</span>
+            </CardTitle>
+            <CardDescription>
+              Review and approve/reject projects awaiting verification
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {pendingProjectReviews.map((project) => (
+                <div key={project.id} className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h4 className="font-semibold">{project.title}</h4>
+                        <Badge variant="warning">Under Review</Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">{project.description}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                        <span>Org: {project.organization.name}</span>
+                        <span>Type: {project.organization.type}</span>
+                        <span>Created: {new Date(project.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <ProjectDetailsModal project={project}>
+                        <Button size="sm" variant="outline">
+                          View Details
+                        </Button>
+                      </ProjectDetailsModal>
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleApproveProject(project.id)}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Approve
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        onClick={() => handleRequestChanges(project.id)}
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Request Changes
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pending Issuance Requests */}
       {pendingIssuances.length > 0 && (
