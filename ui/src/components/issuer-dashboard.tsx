@@ -286,10 +286,25 @@ export function IssuerDashboard() {
     }
   }
 
-  const handleRetireCredits = (project: Project, batch: any) => {
-    setSelectedBatchForRetirement({ project, batch })
-    setRetirementForm({ quantity: 0, reason: '' })
-    setShowRetirementModal(true)
+  const handleRetireCredits = async (project: Project, batch: any) => {
+    try {
+      // Fetch full project details to get credit batch info
+      const projectData = await apiClient.get(`/projects/${project.id}`)
+      
+      // Find the batch that matches
+      const fullBatch = projectData.creditBatches?.[0]
+      if (!fullBatch) {
+        showNotification('error', 'No credit batch found for this project')
+        return
+      }
+      
+      setSelectedBatchForRetirement({ project, batch: fullBatch })
+      setRetirementForm({ quantity: 0, reason: '' })
+      setShowRetirementModal(true)
+    } catch (error) {
+      console.error('Failed to fetch project details:', error)
+      showNotification('error', 'Failed to load credit batch details')
+    }
   }
 
   const handleConfirmRetirement = async () => {
@@ -856,7 +871,7 @@ export function IssuerDashboard() {
                         </div>
                         <Button 
                           size="sm" 
-                          onClick={() => handleRetireCredits(project, batch)}
+                          onClick={() => handleRetireCredits(project, { id: batch.id, ...batch })}
                           className="bg-green-600 hover:bg-green-700"
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
@@ -1089,8 +1104,9 @@ export function IssuerDashboard() {
                   <Input
                     id="quantity"
                     type="number"
-                    value={newIssuance.quantity}
-                    onChange={(e) => setNewIssuance({...newIssuance, quantity: parseInt(e.target.value)})}
+                    value={newIssuance.quantity || ''}
+                    onChange={(e) => setNewIssuance({...newIssuance, quantity: parseInt(e.target.value) || 0})}
+                    placeholder="Enter quantity"
                     required
                   />
                 </div>
@@ -1244,8 +1260,9 @@ export function IssuerDashboard() {
                   <Input
                     id="editQuantity"
                     type="number"
-                    value={editIssuanceData.quantity}
+                    value={editIssuanceData.quantity || ''}
                     onChange={(e) => setEditIssuanceData({...editIssuanceData, quantity: parseInt(e.target.value) || 0})}
+                    placeholder="Enter quantity"
                     min="1"
                     required
                   />
@@ -1409,7 +1426,7 @@ export function IssuerDashboard() {
             </div>
             <p className="text-gray-600 mb-4">
               Project: <strong>{selectedBatchForRetirement.project.title}</strong><br />
-              Available: <strong>{selectedBatchForRetirement.batch.totalIssued - selectedBatchForRetirement.batch.totalRetired}</strong> tCO₂e
+              Available: <strong>{(selectedBatchForRetirement.batch.totalIssued || 0) - (selectedBatchForRetirement.batch.totalRetired || 0)}</strong> tCO₂e
             </p>
             <div className="space-y-4">
               <div>
@@ -1417,10 +1434,11 @@ export function IssuerDashboard() {
                 <Input
                   id="retirementQuantity"
                   type="number"
-                  value={retirementForm.quantity}
+                  value={retirementForm.quantity || ''}
                   onChange={(e) => setRetirementForm({...retirementForm, quantity: parseFloat(e.target.value) || 0})}
                   min="1"
-                  max={selectedBatchForRetirement.batch.totalIssued - selectedBatchForRetirement.batch.totalRetired}
+                  max={(selectedBatchForRetirement.batch.totalIssued || 0) - (selectedBatchForRetirement.batch.totalRetired || 0)}
+                  placeholder="Enter quantity"
                   required
                 />
               </div>
