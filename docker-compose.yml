@@ -28,7 +28,7 @@ services:
       JWT_EXPIRES_IN: 24h
       SERVER_PORT: 4000
       SERVER_HOST: 0.0.0.0
-      CORS_ORIGIN: http://localhost:3000
+      CORS_ORIGIN: "*"
       ADAPTER_URL: http://mock-adapter:3001
       LOCKER_URL: http://mock-locker:3002
       ORACLE_URL: http://mock-oracle:3003

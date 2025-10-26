@@ -134,7 +134,7 @@ JWT_SECRET=your-super-secret-jwt-key-change-in-production-CHANGE-THIS
 JWT_EXPIRES_IN=24h
 SERVER_PORT=4000
 SERVER_HOST=0.0.0.0
-CORS_ORIGIN=http://localhost:3000
+CORS_ORIGIN=*
 ADAPTER_URL=http://mock-adapter:3001
 LOCKER_URL=http://mock-locker:3002
 ORACLE_URL=http://mock-oracle:3003
@@ -180,7 +180,7 @@ echo "🗄️  Running database migrations and seeding..."
 # Check if we're in docker group
 if groups | grep -q docker; then
     docker-compose exec -T api sh -c "npm install -g pnpm && pnpm db:generate" || true
-    docker-compose exec -T api sh -c "npm install -g pnpm && pnpm db:fresh" || true
+    docker-compose exec -T asudopi sh -c "npm install -g pnpm && pnpm db:fresh" || true
     
     # Check container status
     echo "📊 Checking container status..."
@@ -199,7 +199,7 @@ echo ""
 echo "✅ Deployment complete!"
 echo ""
 echo "📊 Final Status:"
-docker-compose ps
+sudo docker-compose ps
 
 # Get public IP
 PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || echo "unknown")
