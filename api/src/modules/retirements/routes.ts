@@ -84,18 +84,22 @@ export async function retirementRoutes(fastify: FastifyInstance) {
     // Create retirement in transaction
     const result = await prisma.$transaction(async (tx) => {
       // Create retirement record
+      const retirementData = {
+        certificateId,
+        orgId: batch.project.orgId,
+        batchId: batch.id,
+        quantity: data.quantity,
+        serialStart: retirementStartSerial,
+        serialEnd: retirementEndSerial,
+        reason: data.reason || '',
+        purpose: data.purpose || data.reason || 'Voluntary offset', // Use reason as purpose if not provided
+        beneficiary: data.beneficiary,
+      }
+      
+      console.log('Creating retirement with data:', retirementData)
+      
       const retirement = await tx.retirement.create({
-        data: {
-          certificateId,
-          orgId: batch.project.orgId,
-          batchId: batch.id,
-          quantity: data.quantity,
-          serialStart: retirementStartSerial,
-          serialEnd: retirementEndSerial,
-          reason: data.reason || '',
-          purpose: data.purpose || data.reason || 'Voluntary offset', // Use reason as purpose if not provided
-          beneficiary: data.beneficiary,
-        },
+        data: retirementData,
       })
 
       // Update batch total retired
@@ -128,6 +132,12 @@ export async function retirementRoutes(fastify: FastifyInstance) {
       }
     } catch (error: any) {
       console.error('Retirement creation error:', error)
+      console.error('Error stack:', error.stack)
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        meta: error.meta
+      })
       throw new AppError(ErrorCodes.INTERNAL_ERROR, error.message || 'Failed to create retirement', 500)
     }
   })
