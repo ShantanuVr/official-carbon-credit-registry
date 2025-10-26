@@ -164,7 +164,18 @@ export async function projectRoutes(fastify: FastifyInstance) {
           },
         },
         creditBatches: {
-          include: {
+          select: {
+            id: true,
+            projectId: true,
+            issuanceId: true,
+            vintageStart: true,
+            vintageEnd: true,
+            totalIssued: true,
+            totalRetired: true,
+            classId: true,
+            serialStart: true,
+            serialEnd: true,
+            createdAt: true,
             holdings: {
               include: {
                 organization: true,
