@@ -291,13 +291,19 @@ export async function projectRoutes(fastify: FastifyInstance) {
       throw new AppError(ErrorCodes.PROJECT_NOT_FOUND, 'Project not found', 404)
     }
 
-    if (project.status !== ProjectStatus.DRAFT) {
-      throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Project must be in DRAFT status to submit', 400)
+    // Allow submission from DRAFT or NEEDS_CHANGES status
+    if (project.status !== ProjectStatus.DRAFT && project.status !== ProjectStatus.NEEDS_CHANGES) {
+      throw new AppError(ErrorCodes.INVALID_STATE_TRANSITION, 'Project must be in DRAFT or NEEDS_CHANGES status to submit', 400)
     }
 
     const updatedProject = await prisma.project.update({
       where: { id: params.id },
-      data: { status: ProjectStatus.UNDER_REVIEW },
+      data: { 
+        status: ProjectStatus.UNDER_REVIEW,
+        feedback: null, // Clear feedback when resubmitting
+        feedbackBy: null,
+        feedbackAt: null,
+      },
       include: {
         organization: true,
         evidenceFiles: true,
@@ -351,7 +357,12 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
     const updatedProject = await prisma.project.update({
       where: { id: params.id },
-      data: { status: ProjectStatus.NEEDS_CHANGES },
+      data: { 
+        status: ProjectStatus.NEEDS_CHANGES,
+        feedback: data.message,
+        feedbackBy: authRequest.user.id,
+        feedbackAt: new Date(),
+      },
       include: {
         organization: true,
         evidenceFiles: true,

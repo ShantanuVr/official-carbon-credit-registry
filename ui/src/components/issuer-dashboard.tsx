@@ -33,6 +33,9 @@ interface Project {
   country: string
   region: string
   methodology: string
+  feedback?: string
+  feedbackBy?: string
+  feedbackAt?: string
   createdAt: string
   creditBatches: Array<{
     totalIssued: number
@@ -241,6 +244,21 @@ export function IssuerDashboard() {
       showNotification('error', 'Failed to delete project. Please try again.')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const handleResubmitProject = async (project: Project) => {
+    try {
+      await apiClient.post(`/projects/${project.id}/submit`, {})
+      
+      // Refresh projects list
+      const projectsData = await apiClient.get('/projects')
+      setProjects((projectsData as any).projects || projectsData as Project[])
+      
+      showNotification('success', 'Project resubmitted for review successfully!')
+    } catch (error) {
+      console.error('Failed to resubmit project:', error)
+      showNotification('error', 'Failed to resubmit project. Please try again.')
     }
   }
 
@@ -564,6 +582,22 @@ export function IssuerDashboard() {
                         Retired: {(project.creditBatches || []).reduce((sum, batch) => sum + batch.totalRetired, 0).toLocaleString()} tCO₂e
                       </span>
                     </div>
+                    {project.status === 'NEEDS_CHANGES' && project.feedback && (
+                      <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <div className="flex items-start">
+                          <XCircle className="h-4 w-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-yellow-800 mb-1">Verifier Feedback:</p>
+                            <p className="text-sm text-yellow-700">{project.feedback}</p>
+                            {project.feedbackAt && (
+                              <p className="text-xs text-yellow-600 mt-1">
+                                {new Date(project.feedbackAt).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex-shrink-0 flex space-x-2 items-start pt-1">
                     <ProjectDetailsModal project={project}>
@@ -571,12 +605,23 @@ export function IssuerDashboard() {
                         View Details
                       </Button>
                     </ProjectDetailsModal>
+                    {project.status === 'NEEDS_CHANGES' && (
+                      <Button 
+                        size="sm" 
+                        variant="default"
+                        onClick={() => handleResubmitProject(project)}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Resubmit
+                      </Button>
+                    )}
                     <Button 
                       size="sm" 
                       variant="outline"
                       onClick={() => handleEditProject(project.id)}
-                      disabled={project.status !== 'DRAFT'}
-                      title={project.status !== 'DRAFT' ? 'Only draft projects can be edited' : 'Edit project'}
+                      disabled={project.status === 'APPROVED' || project.status === 'UNDER_REVIEW'}
+                      title={project.status === 'APPROVED' || project.status === 'UNDER_REVIEW' ? 'Cannot edit approved or under review projects' : 'Edit project'}
                     >
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
