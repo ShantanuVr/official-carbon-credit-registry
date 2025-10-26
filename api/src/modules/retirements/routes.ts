@@ -81,6 +81,21 @@ export async function retirementRoutes(fastify: FastifyInstance) {
     const retirementStartSerial = batch.serialStart + batch.totalRetired
     const retirementEndSerial = retirementStartSerial + data.quantity - 1
 
+    // Ensure purpose is set
+    const purpose = data.purpose || data.reason || 'Voluntary offset'
+    
+    console.log('Retirement data prepared:', {
+      certificateId,
+      orgId: batch.project.orgId,
+      batchId: batch.id,
+      quantity: data.quantity,
+      serialStart: retirementStartSerial,
+      serialEnd: retirementEndSerial,
+      reason: data.reason,
+      purpose,
+      beneficiary: data.beneficiary,
+    })
+
     // Create retirement in transaction
     const result = await prisma.$transaction(async (tx) => {
       // Create retirement record
@@ -91,8 +106,8 @@ export async function retirementRoutes(fastify: FastifyInstance) {
         quantity: data.quantity,
         serialStart: retirementStartSerial,
         serialEnd: retirementEndSerial,
-        reason: data.reason || '',
-        purpose: data.purpose || data.reason || 'Voluntary offset', // Use reason as purpose if not provided
+        reason: data.reason,
+        purpose,
         beneficiary: data.beneficiary,
       }
       

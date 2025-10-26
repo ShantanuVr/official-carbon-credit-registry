@@ -42,6 +42,7 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
+  // Disabled to use existing running server
   // webServer: {
   //   command: 'cd ui && pnpm dev',
   //   url: 'http://localhost:3000',
