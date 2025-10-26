@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ProjectDetailsModal } from '@/components/project-details-modal'
 import { 
   FileText, 
   Eye,
@@ -47,7 +48,61 @@ export function ViewerDashboard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [countryFilter, setCountryFilter] = useState('all')
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const { isAuthenticated } = useAuth()
+
+  const handleViewDetails = async (projectId: string) => {
+    try {
+      const projectData = await apiClient.get(`/projects/${projectId}`)
+      setSelectedProject(projectData)
+    } catch (error) {
+      console.error('Failed to fetch project details:', error)
+    }
+  }
+
+  const handleDownloadReport = async (project: Project) => {
+    try {
+      // Fetch full project details for report
+      const projectData = await apiClient.get(`/projects/${project.id}`)
+      
+      // Create report content
+      const reportContent = {
+        projectId: projectData.id,
+        title: projectData.title,
+        description: projectData.description,
+        status: projectData.status,
+        organization: projectData.organization?.name || 'Unknown',
+        country: projectData.country,
+        region: projectData.region,
+        methodology: projectData.methodology,
+        creditsIssued: project.creditBatches?.reduce((sum, batch) => sum + batch.totalIssued, 0) || 0,
+        creditsRetired: project.creditBatches?.reduce((sum, batch) => sum + batch.totalRetired, 0) || 0,
+        serialRanges: project.creditBatches?.map(batch => ({
+          start: batch.serialStart,
+          end: batch.serialEnd,
+          total: batch.totalIssued,
+          retired: batch.totalRetired
+        })) || [],
+        createdAt: project.createdAt,
+        updatedAt: projectData.updatedAt || project.createdAt
+      }
+
+      // Convert to JSON and download
+      const reportJson = JSON.stringify(reportContent, null, 2)
+      const blob = new Blob([reportJson], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `project-${project.id}-report.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to download report:', error)
+      alert('Failed to download report. Please try again.')
+    }
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -294,11 +349,19 @@ export function ViewerDashboard() {
                         )}
                       </div>
                       <div className="flex space-x-2 ml-4">
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleViewDetails(project.id)}
+                        >
                           <Eye className="h-4 w-4 mr-1" />
                           View Details
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleDownloadReport(project)}
+                        >
                           <Download className="h-4 w-4 mr-1" />
                           Download Report
                         </Button>
@@ -339,6 +402,15 @@ export function ViewerDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Project Details Modal */}
+      {selectedProject && (
+        <ProjectDetailsModal
+          project={selectedProject}
+          open={true}
+          onClose={() => setSelectedProject(null)}
+        />
+      )}
     </div>
   )
 }

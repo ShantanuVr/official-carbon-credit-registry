@@ -40,11 +40,15 @@ interface Project {
 
 interface ProjectDetailsModalProps {
   project: Project
-  children: React.ReactNode
+  children?: React.ReactNode
+  onClose?: () => void
+  open?: boolean
 }
 
-export function ProjectDetailsModal({ project, children }: ProjectDetailsModalProps) {
-  const [open, setOpen] = useState(false)
+export function ProjectDetailsModal({ project, children, onClose, open: controlledOpen }: ProjectDetailsModalProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen
+  const setOpen = controlledOpen !== undefined ? (onClose || (() => {})) : setInternalOpen
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -140,11 +144,13 @@ Official Carbon Credit Registry Simulator
     URL.revokeObjectURL(url)
   }
 
-  return (
+  const content = (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
+      {children && (
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">{project.title}</DialogTitle>
@@ -357,4 +363,6 @@ Official Carbon Credit Registry Simulator
       </DialogContent>
     </Dialog>
   )
+
+  return content
 }
