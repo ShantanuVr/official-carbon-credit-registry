@@ -1,0 +1,11 @@
+# Single command to deploy to fresh EC2 instance:
+
+curl https://raw.githubusercontent.com/ShantanuVr/official-carbon-credit-registry/main/deploy/fresh-ec2-deploy.sh | bash
+
+# This will:
+# 1. Install Docker and Docker Compose
+# 2. Clone the repository
+# 3. Configure environment files
+# 4. Start all containers
+# 5. Run database migrations and seed data
+# 6. Display access URLs

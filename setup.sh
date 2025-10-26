@@ -1,4 +1,4 @@
-#!/bin/bash
+cd #!/bin/bash
 
 echo "🌱 Official Carbon Credit Registry Simulator Setup"
 echo "=================================================="
