@@ -107,21 +107,27 @@ export default function LoginPage() {
             <h3 className="font-semibold text-sm">Quick Demo Login</h3>
             <div className="space-y-2 text-sm">
               <div className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                   onClick={() => fillDemoAccount('admin@registry.test', 'Admin@123')}>
+                   onClick={() => fillDemoAccount('admin@carbonregistry.test', 'password123')}>
                 <div className="font-medium">Admin</div>
-                <div className="text-gray-600">admin@registry.test</div>
+                <div className="text-gray-600">admin@carbonregistry.test</div>
                 <div className="text-gray-500">Click to fill</div>
               </div>
               <div className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                   onClick={() => fillDemoAccount('verifier1@registry.test', 'Admin@123')}>
+                   onClick={() => fillDemoAccount('verifier@carbonregistry.test', 'password123')}>
                 <div className="font-medium">Verifier</div>
-                <div className="text-gray-600">verifier1@registry.test</div>
+                <div className="text-gray-600">verifier@carbonregistry.test</div>
                 <div className="text-gray-500">Click to fill</div>
               </div>
               <div className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                   onClick={() => fillDemoAccount('solarco@registry.test', 'Admin@123')}>
+                   onClick={() => fillDemoAccount('issuer@carbonregistry.test', 'password123')}>
                 <div className="font-medium">Issuer</div>
-                <div className="text-gray-600">solarco@registry.test</div>
+                <div className="text-gray-600">issuer@carbonregistry.test</div>
+                <div className="text-gray-500">Click to fill</div>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                   onClick={() => fillDemoAccount('viewer@carbonregistry.test', 'password123')}>
+                <div className="font-medium">Viewer</div>
+                <div className="text-gray-600">viewer@carbonregistry.test</div>
                 <div className="text-gray-500">Click to fill</div>
               </div>
             </div>
