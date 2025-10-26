@@ -98,6 +98,12 @@ export function IssuerDashboard() {
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showRetirementModal, setShowRetirementModal] = useState(false)
+  const [selectedBatchForRetirement, setSelectedBatchForRetirement] = useState<any>(null)
+  const [retirementForm, setRetirementForm] = useState({
+    quantity: 0,
+    reason: ''
+  })
 
   const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
     setNotification({ type, message })
@@ -277,6 +283,44 @@ export function IssuerDashboard() {
     } catch (error) {
       console.error('Failed to resubmit project:', error)
       showNotification('error', 'Failed to resubmit project. Please try again.')
+    }
+  }
+
+  const handleRetireCredits = (project: Project, batch: any) => {
+    setSelectedBatchForRetirement({ project, batch })
+    setRetirementForm({ quantity: 0, reason: '' })
+    setShowRetirementModal(true)
+  }
+
+  const handleConfirmRetirement = async () => {
+    if (!selectedBatchForRetirement) return
+    if (retirementForm.quantity <= 0) {
+      showNotification('error', 'Please enter a valid quantity')
+      return
+    }
+    if (!retirementForm.reason.trim()) {
+      showNotification('error', 'Please provide a retirement reason')
+      return
+    }
+
+    try {
+      // Create retirement via API
+      await apiClient.post('/retirements', {
+        batchId: selectedBatchForRetirement.batch.id,
+        quantity: retirementForm.quantity,
+        reason: retirementForm.reason
+      })
+
+      // Refresh projects
+      const projectsData = await apiClient.get('/projects')
+      setProjects((projectsData as any).projects || projectsData as Project[])
+      
+      setShowRetirementModal(false)
+      setSelectedBatchForRetirement(null)
+      showNotification('success', 'Credits retired successfully!')
+    } catch (error) {
+      console.error('Failed to retire credits:', error)
+      showNotification('error', 'Failed to retire credits. Please try again.')
     }
   }
 
@@ -760,6 +804,70 @@ export function IssuerDashboard() {
                 </div>
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Available Credits for Retirement */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <TrendingUp className="h-5 w-5" />
+            <span>My Credit Holdings</span>
+          </CardTitle>
+          <CardDescription>
+            View and retire carbon credits from your approved projects
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {projects.filter(p => p.status === 'APPROVED' && (p.creditBatches || []).length > 0).length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">No credit batches available yet. Credits will appear here once your projects are approved and finalized.</p>
+              </div>
+            ) : (
+              projects
+                .filter(p => p.status === 'APPROVED')
+                .map((project) => {
+                  const batch = project.creditBatches?.[0]
+                  if (!batch) return null
+                  const available = batch.totalIssued - batch.totalRetired
+                  if (available <= 0) return null
+                  
+                  return (
+                    <div key={project.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-2">
+                          <h4 className="font-semibold">{project.title}</h4>
+                          <div className="flex items-center space-x-4 text-sm">
+                            <span className="text-blue-600">
+                              Total Issued: {batch.totalIssued.toLocaleString()} tCO₂e
+                            </span>
+                            <span className="text-purple-600">
+                              Retired: {batch.totalRetired.toLocaleString()} tCO₂e
+                            </span>
+                            <span className="text-green-600 font-semibold">
+                              Available: {available.toLocaleString()} tCO₂e
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Serial Range: {batch.serialStart} - {batch.serialEnd}
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleRetireCredits(project, batch)}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Retire Credits
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })
+                .filter(Boolean)
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1286,6 +1394,65 @@ export function IssuerDashboard() {
                   {deleting ? 'Deleting...' : 'Delete Project'}
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Retirement Modal */}
+      {showRetirementModal && selectedBatchForRetirement && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+            <div className="flex items-center mb-4">
+              <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
+              <h3 className="text-lg font-semibold">Retire Carbon Credits</h3>
+            </div>
+            <p className="text-gray-600 mb-4">
+              Project: <strong>{selectedBatchForRetirement.project.title}</strong><br />
+              Available: <strong>{selectedBatchForRetirement.batch.totalIssued - selectedBatchForRetirement.batch.totalRetired}</strong> tCO₂e
+            </p>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="retirementQuantity">Quantity to Retire (tCO₂e)</Label>
+                <Input
+                  id="retirementQuantity"
+                  type="number"
+                  value={retirementForm.quantity}
+                  onChange={(e) => setRetirementForm({...retirementForm, quantity: parseFloat(e.target.value) || 0})}
+                  min="1"
+                  max={selectedBatchForRetirement.batch.totalIssued - selectedBatchForRetirement.batch.totalRetired}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="retirementReason">Retirement Reason</Label>
+                <Textarea
+                  id="retirementReason"
+                  value={retirementForm.reason}
+                  onChange={(e) => setRetirementForm({...retirementForm, reason: e.target.value})}
+                  placeholder="e.g., Corporate carbon neutrality initiative, voluntary offset"
+                  rows={4}
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setShowRetirementModal(false)
+                  setSelectedBatchForRetirement(null)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleConfirmRetirement}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Retire Credits
+              </Button>
             </div>
           </div>
         </div>
