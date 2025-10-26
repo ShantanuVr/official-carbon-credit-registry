@@ -78,8 +78,17 @@ git pull origin main || echo "No repository found, using existing code"
 
 # Start Docker services
 echo "🐳 Starting Docker containers..."
-# Use docker-compose (with hyphen) for compatibility
-docker-compose up -d || sudo docker-compose up -d
+# Check which docker-compose command is available
+if command -v docker-compose &> /dev/null; then
+    docker-compose up -d
+elif command -v docker &> /dev/null && docker compose version &> /dev/null; then
+    docker compose up -d
+else
+    echo "❌ Docker Compose not found. Installing..."
+    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
+    docker-compose up -d
+fi
 
 # Wait for services to be ready
 echo "⏳ Waiting for services to start..."
@@ -87,15 +96,24 @@ sleep 30
 
 # Run database migrations
 echo "🗄️  Running database migrations..."
-docker-compose exec -T api pnpm db:generate || true
-docker-compose exec -T api pnpm db:migrate || true
-docker-compose exec -T api pnpm db:fresh || docker-compose exec -T api pnpm db:seed:all || true
+# Use the correct docker-compose command based on what's installed
+if command -v docker-compose &> /dev/null; then
+    docker-compose exec -T api pnpm db:generate || true
+    docker-compose exec -T api pnpm db:migrate || true
+    docker-compose exec -T api pnpm db:fresh || docker-compose exec -T api pnpm db:seed:all || true
+    echo "📊 Service Status:"
+    docker-compose ps
+else
+    docker compose exec -T api pnpm db:generate || true
+    docker compose exec -T api pnpm db:migrate || true
+    docker compose exec -T api pnpm db:fresh || docker compose exec -T api pnpm db:seed:all || true
+    echo "📊 Service Status:"
+    docker compose ps
+fi
 
-# Check status
-echo "✅ Deployment complete!"
+# Deployment complete message
 echo ""
-echo "📊 Service Status:"
-docker-compose ps
+echo "✅ Deployment complete!"
 
 echo ""
 echo "🌐 Access your application:"
