@@ -129,7 +129,9 @@ async function registerRoutes() {
               totalIssued: true,
               totalRetired: true,
               vintageStart: true,
-              vintageEnd: true
+              vintageEnd: true,
+              serialStart: true,
+              serialEnd: true
             }
           }
         },
@@ -149,6 +151,7 @@ async function registerRoutes() {
           methodology: project.methodology,
           status: project.status,
           organization: project.organization,
+          creditBatches: project.creditBatches,
           creditsIssued: project.creditBatches.reduce((sum, batch) => sum + batch.totalIssued, 0),
           creditsRetired: project.creditBatches.reduce((sum, batch) => sum + batch.totalRetired, 0),
           createdAt: project.createdAt,
