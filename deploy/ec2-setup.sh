@@ -21,6 +21,12 @@ echo "📦 Installing Docker Compose..."
 sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 
+# Install Docker Compose plugin (v2)
+echo "📦 Installing Docker Compose V2 plugin..."
+mkdir -p ~/.docker/cli-plugins/
+curl -SL https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m) -o ~/.docker/cli-plugins/docker-compose
+chmod +x ~/.docker/cli-plugins/docker-compose
+
 # Install Git
 echo "📦 Installing Git..."
 sudo yum install -y git
@@ -72,7 +78,8 @@ git pull origin main || echo "No repository found, using existing code"
 
 # Start Docker services
 echo "🐳 Starting Docker containers..."
-docker compose up -d
+# Use docker-compose (with hyphen) for compatibility
+docker-compose up -d || sudo docker-compose up -d
 
 # Wait for services to be ready
 echo "⏳ Waiting for services to start..."
@@ -80,15 +87,15 @@ sleep 30
 
 # Run database migrations
 echo "🗄️  Running database migrations..."
-docker compose exec -T api pnpm db:generate || true
-docker compose exec -T api pnpm db:migrate || true
-docker compose exec -T api pnpm db:fresh || docker compose exec -T api pnpm db:seed:all || true
+docker-compose exec -T api pnpm db:generate || true
+docker-compose exec -T api pnpm db:migrate || true
+docker-compose exec -T api pnpm db:fresh || docker-compose exec -T api pnpm db:seed:all || true
 
 # Check status
 echo "✅ Deployment complete!"
 echo ""
 echo "📊 Service Status:"
-docker compose ps
+docker-compose ps
 
 echo ""
 echo "🌐 Access your application:"
