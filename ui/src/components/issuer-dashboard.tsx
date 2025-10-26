@@ -672,7 +672,6 @@ export function IssuerDashboard() {
                     )}
                   </div>
                 </div>
-                </div>
               </div>
             ))}
           </div>
